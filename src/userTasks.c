@@ -9,12 +9,20 @@
 /*=====[Inclusion of own header]=============================================*/
 
 #include "userTasks.h"
-#include "antirebote_rtos.h"
-#include "gpio.h"
 
 /*=====[Inclusions of private function dependencies]=========================*/
 
+#include "antirebote_rtos.h"
+#include "gpio.h"
+#include "primario4.h"
+#include "task.h"
+#include "FreeRTOS.h"
+
 /*=====[Definition macros of private constants]==============================*/
+
+#define TEST_BUTTON TEC4
+#define TEST_PRINCIPAL_STATE 0
+#define TEST_COMM_FLAG 1
 
 /*=====[Private function-like macros]========================================*/
 
@@ -25,6 +33,10 @@
 /*=====[Definitions of public global variables]==============================*/
 
 debounce_t button1;
+dprimario_t prim;
+debounce_t button4;
+bool_t TEST_MODE = TEST_PRINCIPAL_STATE ;
+
 
 /*=====[Definitions of private global variables]=============================*/
 
@@ -33,49 +45,169 @@ debounce_t button1;
 /*=====[Implementations of public functions]=================================*/
 
 // Task implementation
-void myTask( void* taskParmPtr )
+void Init_Sys( void* taskParmPtr )
 {
    // ----- Task setup -----------------------------------
-   printf( "Blinky with freeRTOS y sAPI.\r\n" );
+   // ----- Task repeat for oneshot -------------------------
+   printf("\r\n 1 \r\n");
+   primInit(&prim);
+   fsmButtonInit(&button4,TEST_BUTTON);
+   printf("\r\n 1.1 \r\n");
+   vTaskDelete(NULL);
+}
 
-   GPIOWrite( LEDB, ON );
-
-   // Send the task to the locked state for 1 s (delay)
-   vTaskDelay( 1000 / portTICK_RATE_MS );
-
-   GPIOWrite( LEDB, OFF );
-
-   // Periodic task every 500 ms
-   portTickType xPeriodicity =  500 / portTICK_RATE_MS;
-   portTickType xLastWakeTime = xTaskGetTickCount();
-
+void Update_Sys( void* taskParmPtr )
+{
+   // ----- Task setup -----------------------------------
+	printf("\r\n 2 \r\n");
+	// Tarea periodica cada 1 ms
+	portTickType xPeriodicity =  1 / portTICK_RATE_MS;
+	portTickType xLastWakeTime = xTaskGetTickCount();
    // ----- Task repeat for ever -------------------------
+	printf("\r\n 2.1 \r\n");
    while(TRUE) {
-	   GPIOToggle( LED1 );
-	   if(get_flag(&button1))
-	   {
-		   printf( "Blink!\r\n" );
-	   	   printf("Duracion del boton presionado: %d ms\r\n",button1.pressed_time);
+		primUpdates(&prim);
+		fsmButtonUpdate(&button4);
+      // Send the task to the locked state during xPeriodicity
+      // (periodical delay)
+		vTaskDelayUntil( &xLastWakeTime, xPeriodicity );
+   }
+}
+
+void Control_Sys( void* taskParmPtr )
+{
+	 // ----- Task setup -----------------------------------
+	printf("\r\n 3 \r\n");
+	// Tarea periodica cada 40 ms
+		portTickType xPeriodicity =  40 / portTICK_RATE_MS;
+		portTickType xLastWakeTime = xTaskGetTickCount();
+	   // ----- Task repeat for ever -------------------------
+	   while(TRUE) {
+		   primControl(&prim);
+	      // Send the task to the locked state during xPeriodicity
+	      // (periodical delay)
+			vTaskDelayUntil( &xLastWakeTime, xPeriodicity );
 	   }
-	   vTaskDelay( 40 / portTICK_RATE_MS );
-      // Send the task to the locked state during xPeriodicity
-      // (periodical delay)
-      vTaskDelayUntil( &xLastWakeTime, xPeriodicity );
-   }
 }
 
-void myTask2( void* taskParmPtr )
+void State_Test( void* taskParmPtr )
 {
-   // ----- Task setup -----------------------------------
-	fsmButtonInit(&button1,TEC4);
-   // ----- Task repeat for ever -------------------------
-   while(TRUE) {
-	   fsmButtonUpdate(&button1);
-	   vTaskDelay( 1 / portTICK_RATE_MS );
-      // Send the task to the locked state during xPeriodicity
-      // (periodical delay)
-   }
+	 // ----- Task setup -----------------------------------
+	printf("\r\n 4 \r\n");
+	// Tarea periodica cada 1000 ms
+	portTickType xPeriodicity =  1000 / portTICK_RATE_MS;
+	portTickType xLastWakeTime = xTaskGetTickCount();
+	 // ----- Task repeat for ever -------------------------
+	while(TRUE) {
+
+		switch( prim.state )
+		{
+			case PRENORMAL:
+				//UARTReport( &prim.uart1,"\r\n CURRENT STATE: PRE-NORMAL \r\n");
+				//printf("\r\n CURRENT STATE: PRE-NORMAL \r\n");
+				break;
+			case PREALARM:
+				//UARTReport( &prim.uart1,"\r\n CURRENT STATE: PRE-ALARM \r\n");
+				//printf("\r\n CURRENT STATE: PRE-ALARM \r\n");
+				break;
+			case PREFAIL:
+				//UARTReport( &prim.uart1,"\r\n CURRENT STATE: PRE-FAIL \r\n");
+				//printf("\r\n CURRENT STATE: PRE-FAIL \r\n");
+				break;
+			case NORMAL:
+				//UARTReport( &prim.uart1,"\r\n CURRENT STATE: NORMAL \r\n");
+				//printf("\r\n CURRENT STATE: NORMAL \r\n");
+				break;
+			case FAIL:
+				//UARTReport( &prim.uart1,"\r\n CURRENT STATE: FAIL\r\n");
+				//printf("\r\n CURRENT STATE: FAIL \r\n");
+				break;
+			case ALARM:
+				//UARTReport( &prim.uart1,"\r\n CURRENT STATE: ALARM\r\n");
+				//printf("\r\n CURRENT STATE: ALARM \r\n");
+				break;
+			default:
+				//UARTReport( &prim.uart1,"\r\n CURRENT STATE: PLEASE RESTART\r\n");
+				//printf("\r\n CURRENT STATE: PLEASE RESTART \r\n");
+				break;
+		}
+
+		// Send the task to the locked state during xPeriodicity
+		// (periodical delay)
+		vTaskDelayUntil( &xLastWakeTime, xPeriodicity );
+	}
+
 }
+
+void CurrentTmode( void* taskParmPtr )
+{
+
+	// ----- Task setup -----------------------------------
+	printf("\r\n 5 \r\n");
+	// Tarea periodica cada 5000 ms
+	portTickType xPeriodicity =  5000 / portTICK_RATE_MS;
+	portTickType xLastWakeTime = xTaskGetTickCount();
+	// ----- Task repeat for ever -------------------------
+	while(TRUE) {
+
+		switch( TEST_MODE ) {
+			case TEST_PRINCIPAL_STATE:
+				//UARTReport( &prim.uart1,"\r\n TEST-MODE: PRINCIPAL STATES \r\n");
+				//printf("\r\n TEST-MODE: PRINCIPAL STATES \r\n");
+			break;
+			case TEST_COMM_FLAG:
+				//UARTReport( &prim.uart1,"\r\n TEST-MODE: UART FLAGS \r\n");
+				//printf("\r\n TEST-MODE: UART FLAGS \r\n");
+			break;
+		}
+		// Send the task to the locked state during xPeriodicity
+		// (periodical delay)
+		vTaskDelayUntil( &xLastWakeTime, xPeriodicity );
+	}
+
+}
+
+void Test_Mode( void* taskParmPtr )
+{
+
+	// ----- Task setup -----------------------------------
+	printf("\r\n 6 \r\n");
+	// Tarea periodica cada 100 ms
+	portTickType xPeriodicity =  100 / portTICK_RATE_MS;
+	portTickType xLastWakeTime = xTaskGetTickCount();
+	// ----- Task repeat for ever -------------------------
+	while(TRUE) {
+
+
+		if(get_flag(&button4))
+		{			// More info in ButtonCheck
+			if(TEST_MODE==TEST_PRINCIPAL_STATE)
+				TEST_MODE=TEST_COMM_FLAG;
+			else if(TEST_MODE==TEST_COMM_FLAG)
+				TEST_MODE=TEST_PRINCIPAL_STATE;
+		}
+
+		if (TEST_MODE==TEST_COMM_FLAG){
+			if(prim.COMMFLAG==1)		// If there is any transition made for the
+				GPIOWrite(TEST_LIGHT,HIGH_G);		// UART console, then the Blue Led turns on.
+			else
+				GPIOWrite(TEST_LIGHT,LOW_G);
+		}
+		else if(TEST_MODE==TEST_PRINCIPAL_STATE){
+			if((prim.state==PREALARM)||
+					(prim.state==PREFAIL)||
+					(prim.state==PRENORMAL))	// If we are in PRE-STATE we turn off the
+				GPIOWrite(TEST_LIGHT,LOW_G);	// Blue Led.
+			else
+				GPIOWrite(TEST_LIGHT,HIGH_G);
+		}
+		// Send the task to the locked state during xPeriodicity
+		// (periodical delay)
+		vTaskDelayUntil( &xLastWakeTime, xPeriodicity );
+
+	}
+}
+
 
 /*=====[Implementations of interrupt functions]==============================*/
 

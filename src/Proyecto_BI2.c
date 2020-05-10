@@ -34,31 +34,87 @@ int main( void )
    // Create a task in freeRTOS with dynamic memory
    BaseType_t res=
    xTaskCreate(
-      myTask,                     // Function that implements the task.
-      (const char *)"myTask",     // Text name for the task.
+	  Init_Sys,                     // Function that implements the task.
+      (const char *)"Init_Sys",     // Text name for the task.
       configMINIMAL_STACK_SIZE*2, // Stack size in words, not bytes.
       0,                          // Parameter passed into the task.
-      tskIDLE_PRIORITY+1,         // Priority at which the task is created.
+      tskIDLE_PRIORITY+3,         // Priority at which the task is created.
       0                           // Pointer to the task created in the system
    );
 
    if(res==0){
-	   printf("Error en Task 1");
+	   //printf("Error en Task 1");
    }
    // Create a task in freeRTOS with dynamic memory
    res=
    xTaskCreate(
-         myTask2,                     // Function that implements the task.
-         (const char *)"myTask2",     // Text name for the task.
+		   Update_Sys,                     // Function that implements the task.
+         (const char *)"Update_Sys",     // Text name for the task.
          configMINIMAL_STACK_SIZE*2, // Stack size in words, not bytes.
          0,                          // Parameter passed into the task.
          tskIDLE_PRIORITY+1,         // Priority at which the task is created.
          0                           // Pointer to the task created in the system
       );
    if(res==0){
-   	   printf("Error en Task 2");
+   	   //printf("Error en Task 2");
       }
-   vTaskStartScheduler(); // Initialize scheduler
+
+   res=
+      xTaskCreate(
+    		Control_Sys,                     // Function that implements the task.
+            (const char *)"Control_Sys",     // Text name for the task.
+            configMINIMAL_STACK_SIZE*4, // Stack size in words, not bytes.
+            0,                          // Parameter passed into the task.
+            tskIDLE_PRIORITY+2,         // Priority at which the task is created.
+            0                           // Pointer to the task created in the system
+         );
+      if(res==0){
+      	   //printf("Error en Task 3");
+         }
+
+/*
+      res=
+         xTaskCreate(
+         	  Test_Mode,                     // Function that implements the task.
+               (const char *)"Test_Mode",     // Text name for the task.
+               configMINIMAL_STACK_SIZE*2, // Stack size in words, not bytes.
+               0,                          // Parameter passed into the task.
+               tskIDLE_PRIORITY+1,         // Priority at which the task is created.
+               0                           // Pointer to the task created in the system
+            );
+         if(res==0){
+         	   //printf("Error en Task 4");
+            }
+
+      res=
+        xTaskCreate(
+          CurrentTmode,                     // Function that implements the task.
+		  (const char *)"CurrentTmode",     // Text name for the task.
+		  configMINIMAL_STACK_SIZE*1, // Stack size in words, not bytes.
+		  0,                          // Parameter passed into the task.
+		  tskIDLE_PRIORITY+1,         // Priority at which the task is created.
+		  0                           // Pointer to the task created in the system
+    		  );
+      if(res==0){
+    	  //printf("Error en Task 5");
+      }
+
+      res=
+         xTaskCreate(
+        	   State_Test,                     // Function that implements the task.
+               (const char *)"State_Test",     // Text name for the task.
+               configMINIMAL_STACK_SIZE*1, // Stack size in words, not bytes.
+               0,                          // Parameter passed into the task.
+               tskIDLE_PRIORITY+1,         // Priority at which the task is created.
+               0                           // Pointer to the task created in the system
+            );
+         if(res==0){
+         	   //printf("Error en Task 6");
+            }
+*/
+
+
+      vTaskStartScheduler(); // Initialize scheduler
 
    while( true ); // If reach heare it means that the scheduler could not start
 

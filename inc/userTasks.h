@@ -31,8 +31,12 @@ extern "C" {
 
 /*=====[Prototypes (declarations) of public functions]=======================*/
 
-void myTask( void* taskParmPtr );  // Task declaration
-void myTask2( void* taskParmPtr );  // Task declaration
+void Init_Sys( void* taskParmPtr );  // Task declaration
+void Update_Sys( void* taskParmPtr );  // Task declaration
+void Control_Sys( void* taskParmPtr );  // Task declaration
+void State_Test( void* taskParmPtr );  // Task declaration
+void Test_Mode( void* taskParmPtr );  // Task declaration
+void CurrentTmode( void* taskParmPtr );  // Task declaration
 
 /*=====[Prototypes (declarations) of public interrupt functions]=============*/
 

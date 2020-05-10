@@ -24,6 +24,16 @@ extern "C" {
 
 /*=====[Definition macros of public constants]===============================*/
 
+#define HIGH_G 1
+#define LOW_G 0
+
+#define YELLOW_LIGHT LED1			// GPIO for the Yellow LED
+#define RED_LIGHT LED2				// GPIO for the Red LED
+#define GREEN_LIGHT LED3			// GPIO for the Green LED
+
+#define TEST_LIGHT LEDB				// GPIO for the Test LED
+
+
 /*=====[Public function-like macros]=========================================*/
 
 /*=====[Definitions of public data types]====================================*/

@@ -17,6 +17,7 @@
 #include "primario4.h"
 #include "task.h"
 #include "FreeRTOS.h"
+#include "semphr.h"
 
 /*=====[Definition macros of private constants]==============================*/
 
@@ -27,7 +28,7 @@
 /*=====[Private function-like macros]========================================*/
 
 /*=====[Definitions of private data types]===================================*/
-
+xSemaphoreHandle gatekeeper=0;
 /*=====[Definitions of external public global variables]=====================*/
 
 /*=====[Definitions of public global variables]==============================*/
@@ -45,29 +46,33 @@ bool_t TEST_MODE = TEST_PRINCIPAL_STATE ;
 /*=====[Implementations of public functions]=================================*/
 
 // Task implementation
+
 void Init_Sys( void* taskParmPtr )
 {
+	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));
    // ----- Task setup -----------------------------------
    // ----- Task repeat for oneshot -------------------------
-   printf("\r\n 1 \r\n");
    primInit(&prim);
    fsmButtonInit(&button4,TEST_BUTTON);
-   printf("\r\n 1.1 \r\n");
+   gatekeeper=xSemaphoreCreateRecursiveMutex();
    vTaskDelete(NULL);
 }
 
 void Update_Sys( void* taskParmPtr )
 {
+	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));
    // ----- Task setup -----------------------------------
-	printf("\r\n 2 \r\n");
 	// Tarea periodica cada 1 ms
 	portTickType xPeriodicity =  1 / portTICK_RATE_MS;
 	portTickType xLastWakeTime = xTaskGetTickCount();
    // ----- Task repeat for ever -------------------------
-	printf("\r\n 2.1 \r\n");
    while(TRUE) {
-		primUpdates(&prim);
-		fsmButtonUpdate(&button4);
+	   if(xSemaphoreTake(gatekeeper,1000))
+	   {
+		   primUpdates(&prim);
+		   xSemaphoreGive(gatekeeper);
+	   }
+	   fsmButtonUpdate(&button4);
       // Send the task to the locked state during xPeriodicity
       // (periodical delay)
 		vTaskDelayUntil( &xLastWakeTime, xPeriodicity );
@@ -76,15 +81,15 @@ void Update_Sys( void* taskParmPtr )
 
 void Control_Sys( void* taskParmPtr )
 {
-	 // ----- Task setup -----------------------------------
-	printf("\r\n 3 \r\n");
+	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));
+	// ----- Task setup -----------------------------------
 	// Tarea periodica cada 40 ms
 		portTickType xPeriodicity =  40 / portTICK_RATE_MS;
 		portTickType xLastWakeTime = xTaskGetTickCount();
 	   // ----- Task repeat for ever -------------------------
 	   while(TRUE) {
 		   primControl(&prim);
-	      // Send the task to the locked state during xPeriodicity
+		  // Send the task to the locked state during xPeriodicity
 	      // (periodical delay)
 			vTaskDelayUntil( &xLastWakeTime, xPeriodicity );
 	   }
@@ -92,46 +97,48 @@ void Control_Sys( void* taskParmPtr )
 
 void State_Test( void* taskParmPtr )
 {
-	 // ----- Task setup -----------------------------------
-	printf("\r\n 4 \r\n");
+	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));
+	// ----- Task setup -----------------------------------
 	// Tarea periodica cada 1000 ms
 	portTickType xPeriodicity =  1000 / portTICK_RATE_MS;
 	portTickType xLastWakeTime = xTaskGetTickCount();
 	 // ----- Task repeat for ever -------------------------
 	while(TRUE) {
-
-		switch( prim.state )
+		if(xSemaphoreTake(gatekeeper,1000))
 		{
+			switch( prim.state )
+			{
 			case PRENORMAL:
-				//UARTReport( &prim.uart1,"\r\n CURRENT STATE: PRE-NORMAL \r\n");
+				UARTReport( &prim.uart1,"\r\n CURRENT STATE: PRE-NORMAL \r\n");
 				//printf("\r\n CURRENT STATE: PRE-NORMAL \r\n");
 				break;
 			case PREALARM:
-				//UARTReport( &prim.uart1,"\r\n CURRENT STATE: PRE-ALARM \r\n");
+				UARTReport( &prim.uart1,"\r\n CURRENT STATE: PRE-ALARM \r\n");
 				//printf("\r\n CURRENT STATE: PRE-ALARM \r\n");
 				break;
 			case PREFAIL:
-				//UARTReport( &prim.uart1,"\r\n CURRENT STATE: PRE-FAIL \r\n");
+				UARTReport( &prim.uart1,"\r\n CURRENT STATE: PRE-FAIL \r\n");
 				//printf("\r\n CURRENT STATE: PRE-FAIL \r\n");
 				break;
 			case NORMAL:
-				//UARTReport( &prim.uart1,"\r\n CURRENT STATE: NORMAL \r\n");
+				UARTReport( &prim.uart1,"\r\n CURRENT STATE: NORMAL \r\n");
 				//printf("\r\n CURRENT STATE: NORMAL \r\n");
 				break;
 			case FAIL:
-				//UARTReport( &prim.uart1,"\r\n CURRENT STATE: FAIL\r\n");
+				UARTReport( &prim.uart1,"\r\n CURRENT STATE: FAIL\r\n");
 				//printf("\r\n CURRENT STATE: FAIL \r\n");
 				break;
 			case ALARM:
-				//UARTReport( &prim.uart1,"\r\n CURRENT STATE: ALARM\r\n");
+				UARTReport( &prim.uart1,"\r\n CURRENT STATE: ALARM\r\n");
 				//printf("\r\n CURRENT STATE: ALARM \r\n");
 				break;
 			default:
-				//UARTReport( &prim.uart1,"\r\n CURRENT STATE: PLEASE RESTART\r\n");
+				UARTReport( &prim.uart1,"\r\n CURRENT STATE: PLEASE RESTART\r\n");
 				//printf("\r\n CURRENT STATE: PLEASE RESTART \r\n");
 				break;
+			}
+		   xSemaphoreGive(gatekeeper);
 		}
-
 		// Send the task to the locked state during xPeriodicity
 		// (periodical delay)
 		vTaskDelayUntil( &xLastWakeTime, xPeriodicity );
@@ -141,25 +148,28 @@ void State_Test( void* taskParmPtr )
 
 void CurrentTmode( void* taskParmPtr )
 {
-
+	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));
 	// ----- Task setup -----------------------------------
-	printf("\r\n 5 \r\n");
 	// Tarea periodica cada 5000 ms
 	portTickType xPeriodicity =  5000 / portTICK_RATE_MS;
 	portTickType xLastWakeTime = xTaskGetTickCount();
 	// ----- Task repeat for ever -------------------------
 	while(TRUE) {
+		if(xSemaphoreTake(gatekeeper,1000))
+		 {
 
-		switch( TEST_MODE ) {
+			switch( TEST_MODE ) {
 			case TEST_PRINCIPAL_STATE:
-				//UARTReport( &prim.uart1,"\r\n TEST-MODE: PRINCIPAL STATES \r\n");
+				UARTReport( &prim.uart1,"\r\n TEST-MODE: PRINCIPAL STATES \r\n");
 				//printf("\r\n TEST-MODE: PRINCIPAL STATES \r\n");
-			break;
+				break;
 			case TEST_COMM_FLAG:
-				//UARTReport( &prim.uart1,"\r\n TEST-MODE: UART FLAGS \r\n");
+				UARTReport( &prim.uart1,"\r\n TEST-MODE: UART FLAGS \r\n");
 				//printf("\r\n TEST-MODE: UART FLAGS \r\n");
-			break;
-		}
+				break;
+			}
+			xSemaphoreGive(gatekeeper);
+		 }
 		// Send the task to the locked state during xPeriodicity
 		// (periodical delay)
 		vTaskDelayUntil( &xLastWakeTime, xPeriodicity );
@@ -169,15 +179,13 @@ void CurrentTmode( void* taskParmPtr )
 
 void Test_Mode( void* taskParmPtr )
 {
-
+	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));
 	// ----- Task setup -----------------------------------
-	printf("\r\n 6 \r\n");
 	// Tarea periodica cada 100 ms
 	portTickType xPeriodicity =  100 / portTICK_RATE_MS;
 	portTickType xLastWakeTime = xTaskGetTickCount();
 	// ----- Task repeat for ever -------------------------
 	while(TRUE) {
-
 
 		if(get_flag(&button4))
 		{			// More info in ButtonCheck

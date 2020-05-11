@@ -72,7 +72,7 @@ int main( void )
       	   //printf("Error en Task 3");
          }
 
-/*
+
       res=
          xTaskCreate(
          	  Test_Mode,                     // Function that implements the task.
@@ -90,7 +90,7 @@ int main( void )
         xTaskCreate(
           CurrentTmode,                     // Function that implements the task.
 		  (const char *)"CurrentTmode",     // Text name for the task.
-		  configMINIMAL_STACK_SIZE*1, // Stack size in words, not bytes.
+		  configMINIMAL_STACK_SIZE*2, // Stack size in words, not bytes.
 		  0,                          // Parameter passed into the task.
 		  tskIDLE_PRIORITY+1,         // Priority at which the task is created.
 		  0                           // Pointer to the task created in the system
@@ -103,7 +103,7 @@ int main( void )
          xTaskCreate(
         	   State_Test,                     // Function that implements the task.
                (const char *)"State_Test",     // Text name for the task.
-               configMINIMAL_STACK_SIZE*1, // Stack size in words, not bytes.
+               configMINIMAL_STACK_SIZE*2, // Stack size in words, not bytes.
                0,                          // Parameter passed into the task.
                tskIDLE_PRIORITY+1,         // Priority at which the task is created.
                0                           // Pointer to the task created in the system
@@ -111,7 +111,7 @@ int main( void )
          if(res==0){
          	   //printf("Error en Task 6");
             }
-*/
+
 
 
       vTaskStartScheduler(); // Initialize scheduler

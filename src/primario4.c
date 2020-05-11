@@ -95,7 +95,7 @@ static void ButtonCheck(dprimario_t * prim, char casea, char casef,char casen ){
 }
 
 // Verify the transition conditions related to uart codes
-/*
+
 static void UartCheck(dprimario_t * prim,char mode,char nextmode ,char uartstate ){
 	if(prim->uart1.mode==mode){						//Am I listening to Alarm UART codes?
 		if((UARTRead(&prim->uart1)==UART_received)){  //Was an Alarm code received?
@@ -113,16 +113,14 @@ static void UartCheck(dprimario_t * prim,char mode,char nextmode ,char uartstate
 	if (prim->count>=CYCLES)							//If the number specified of cycles were reached
 		PRESTUCK(prim);
 }
-*/
 
 // Verify the 3 Uart Codes and the button state transitions
 static void FullCheck(dprimario_t * prim,char casea, char casef,char casen){
 	ButtonCheck(prim,casea,casef,casen);
-//	UartCheck(prim,ALARMS,FAILURES,casea);
-//	UartCheck(prim,FAILURES,NORMALS,casef);
-//	UartCheck(prim,NORMALS,ALARMS,casen);
+	UartCheck(prim,ALARMS,FAILURES,casea);
+	UartCheck(prim,FAILURES,NORMALS,casef);
+	UartCheck(prim,NORMALS,ALARMS,casen);
 }
-
 
 //update the MEFSs,
 void primUpdates(dprimario_t * pPrimario){
@@ -147,8 +145,8 @@ bool_t primInit(dprimario_t * pPrimario)
 	fsmButtonInit(&pPrimario->boton1,ALARM_BUTTON);	//Initialize buttons with "antirebote" protocol
 	fsmButtonInit(&pPrimario->boton2,FAIL_BUTTON);
 	fsmButtonInit(&pPrimario->boton3,NORMAL_BUTTON);
-//	UARTInit( &pPrimario->uart1,ALARMS,UART_USB, pPrimario->timeout); //Initialize uart1 through UART_USB
-//	UARTReport( &pPrimario->uart1, "\r\nInital process completed successfully \r\n" );
+	UARTInit( &pPrimario->uart1,ALARMS,UART_USB, pPrimario->timeout); //Initialize uart1 through UART_USB
+	UARTReport( &pPrimario->uart1, "\r\nInital process completed successfully \r\n" );
 	return 1;
 }
 
@@ -187,4 +185,3 @@ bool_t primControl(dprimario_t * pPrimario){
 		}
 	return 1;
 }
-

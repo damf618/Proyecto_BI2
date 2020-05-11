@@ -14,6 +14,7 @@
 /*=====[Inclusions of public function dependencies]==========================*/
 
 #include "FreeRTOS.h"
+#include "semphr.h"
 #include "task.h"
 #include "sapi.h"
 

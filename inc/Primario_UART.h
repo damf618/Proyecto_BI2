@@ -10,6 +10,15 @@
 
 #include <sapi.h>
 
+
+/*=====[C++ - begin]=========================================================*/
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
+
 #define ALARMMSG "al987"
 #define FAILMSG "fa123"
 #define NORMALMSG "no456"
@@ -78,7 +87,7 @@ void UARTReset(uart_prim_t * uprim);
 	@see UARTInit.
 
 **/
-void UARTUpdate(uart_prim_t * uprim);
+void UARTUpdate(uart_prim_t * uprim, char cdata);
 
 /** To listen different codes in one UART Port, we need to monitor one code and after
  *  that monitor a different code, we can not monitor 2 codes at the same time,
@@ -99,5 +108,12 @@ void UARTChange(uart_prim_t * uprim,bool_t code);
 
 **/
 void UARTReport(uart_prim_t * uprim, char *text);
+
+/*=====[C++ - end]===========================================================*/
+
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif /* PROGRAMAS_DAMF_PRIMARIO_INC_PRIMARIO_UART_H_ */

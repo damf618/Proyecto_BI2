@@ -33,6 +33,7 @@ extern "C" {
 #define ALARM_BUTTON TEC1
 #define FAIL_BUTTON TEC2
 #define NORMAL_BUTTON TEC3
+#define TEST_BUTTON TEC4
 
 #define DEF_TIMEOUT 3500			   //Timeout limit between transitions
 

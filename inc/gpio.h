@@ -44,6 +44,7 @@ bool_t GPIORead( gpioMap_t gpio );
 void GPIOWrite( gpioMap_t gpio, bool_t state);
 void GPIOToggle(gpioMap_t gpio);
 
+void GPIOOutConfig(gpioMap_t pin);
 /*=====[Prototypes (declarations) of public interrupt functions]=============*/
 
 /*=====[C++ - end]===========================================================*/

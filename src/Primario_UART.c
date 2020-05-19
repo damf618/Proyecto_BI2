@@ -10,6 +10,7 @@
 
 #include "Primario_UART.h"
 #include "sapi.h"
+#include "fsmuartcodes.h"
 
 
 int window=0;	// For the calculations of the time needed to fulfill the number of
@@ -80,10 +81,10 @@ bool_t UARTInit(uart_prim_t * uprim,bool_t code,uartMap_t Uart,tick_t timeout){
 
 // It updates the state of the MEFS, Machine in charge of the UART Listening
 // Process to verify if there is any possible transition
-void UARTUpdate(uart_prim_t * uprim){
+void UARTUpdate(uart_prim_t * uprim, char cdata){
 	if( uprim->waitTextState != UART_RECEIVE_STRING_RECEIVED_OK &&  //Asks if none of the timeout or received message events were reached.
 		             uprim->waitTextState != UART_RECEIVE_STRING_TIMEOUT )
-		uprim->waitTextState = waitForReceiveStringOrTimeout( uprim->Uart , &uprim->waitText ); //Updates the MEF to receive the next byte.
+		uprim->waitTextState = waitForReceiveStringOrTimeout2( uprim->Uart , &uprim->waitText, cdata ); //Updates the MEF to receive the next byte.
 }
 
 // It reads the MEFS of the UART Listening Process to verify if there is

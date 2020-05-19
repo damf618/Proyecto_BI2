@@ -128,7 +128,7 @@ void primUpdates(dprimario_t * pPrimario){
 	fsmButtonUpdate(&pPrimario->boton1);			//Update of all the MEFSs involved
 	fsmButtonUpdate(&pPrimario->boton2);
 	fsmButtonUpdate(&pPrimario->boton3);
-//	UARTUpdate(&pPrimario->uart1);
+
 }
 
 // It sets initial conditions for the entire program

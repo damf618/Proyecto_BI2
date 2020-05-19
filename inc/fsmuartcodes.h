@@ -8,16 +8,11 @@
 
 /*=====[Avoid multiple inclusion - begin]====================================*/
 
-#ifndef __USER_TASKS_H__
-#define __USER_TASKS_H__
+#ifndef FSMUARTCODES_H_
+#define FSMUARTCODES_H_
 
 /*=====[Inclusions of public function dependencies]==========================*/
-
-#include "FreeRTOS.h"
-#include "semphr.h"
-#include "task.h"
-#include "sapi.h"
-
+#include <sapi.h>
 /*=====[C++ - begin]=========================================================*/
 
 #ifdef __cplusplus
@@ -25,14 +20,14 @@ extern "C" {
 #endif
 
 /*=====[Definition macros of public constants]===============================*/
-#define LONG_TIME 0xffff
+
 /*=====[Public function-like macros]=========================================*/
 
 /*=====[Definitions of public data types]====================================*/
 
 /*=====[Prototypes (declarations) of public functions]=======================*/
+waitForReceiveStringOrTimeoutState_t waitForReceiveStringOrTimeout2( uartMap_t uart, waitForReceiveStringOrTimeout_t* instance, char * receiveByte );
 
-void Sys_Run( void* taskParmPtr );  // Task declaration
 
 /*=====[Prototypes (declarations) of public interrupt functions]=============*/
 
@@ -44,4 +39,4 @@ void Sys_Run( void* taskParmPtr );  // Task declaration
 
 /*=====[Avoid multiple inclusion - end]======================================*/
 
-#endif /* __USER_TASKS_H__ */
+#endif /* FSMUARTCODES_H_ */

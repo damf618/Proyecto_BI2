@@ -48,3 +48,8 @@ void GPIOToggle( gpioMap_t gpio)
 {
 	gpioWrite(gpio, !gpioRead(gpio));
 }
+
+  void GPIOOutConfig(gpioMap_t pin)
+{
+		gpioInit( pin, GPIO_OUTPUT);
+}

@@ -23,15 +23,7 @@ extern "C" {
 #endif
 
 /*=====[Definition macros of public constants]===============================*/
-#define WRITE_COMM 155
-#define READ_COMM 55
-
-#define pinNamePort  6
-#define pinNamePin   1
-#define func FUNC0
-#define gpioPort     3
-#define gpioPin      0
-
+#define BUFF_SIZE 32
 /*=====[Public function-like macros]=========================================*/
 
 /*=====[Definitions of public data types]====================================*/
@@ -40,17 +32,35 @@ typedef struct{
 	gpioMap_t pin;
 }spi_Server_t;
 
-/*
-uint8_t pinNamePort = 6;
-uint8_t pinNamePin  = 1;
-uint8_t func = FUNC0;
-uint8_t gpioPort    = 3;
-uint32_t gpioPin     = 0;
-*/
-
 /*=====[Prototypes (declarations) of public functions]=======================*/
+/** It sets initial conditions for the SPI Communication, it establish the default values
+ *  of SPI Mode and SS Pin.
+
+	@param pServer1 element of type *spi_Server_t* with all SPI data types needed.
+	@param spi SPI Port to be used for the Monitor Program.
+	@param pin selected for the SS function.
+	@note The entire protocol is based on the SPISlave.h protocol for the NodeMCU.
+
+**/
 void SPI_INIT(spi_Server_t * pServer1, spiMap_t spi, gpioMap_t pin);
-bool_t SPI_Server(spi_Server_t * pServer1, uint8_t data);
+
+/** 2 Modes of working, Depending of the previous action taken.
+ * Mode A we sent the Writing Command. We ask for the NodeMCU to upload the
+ * current state to the Firebase Database.
+ * Mode B we sent the Reading Command. We read if the NodeMCU could upload
+ * the info correctly or not.
+
+	@param pServer1 element of type *spi_Server_t* with all SPI data types needed.
+	@param data data to be written in the Mode A of operation, it will be written after the
+	":"character.
+	@param readv vector to receive the answer of the SPI slave, it will save result
+	of the server upload operation.
+	@note The entire protocol is based on the SPISlave.h protocol for the NodeMCU.
+	This function must be called after SPI_INIT.
+	@see SPI_INIT.
+
+**/
+bool_t SPI_Server(spi_Server_t * pServer1, uint8_t data,uint8_t * readv);
 
 /*=====[Prototypes (declarations) of public interrupt functions]=============*/
 

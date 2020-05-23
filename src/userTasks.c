@@ -39,10 +39,18 @@ dprimario_t prim;
 
 spi_Server_t serv;
 
+//TODO SEND ALLTHIS NEW FEATURES TO THE PRIMARIO LIBRARY
+//UART Interrupt Task Handler
 TaskHandle_t IntTaskUARTHandle = NULL;
+// Yield used in the Interrupt to yield the CPU to the Interruption related Task
+BaseType_t checkIfYieldRequired;
+//Semaphore Init
 SemaphoreHandle_t xSemaphore = NULL;
+//Mutex Init
 xSemaphoreHandle gatekeeper=0;
-QueueHandle_t Queue_Data;
+//QueueHandle_t Queue_Data;
+
+
 /*=====[Definitions of external public global variables]=====================*/
 
 /*=====[Definitions of public global variables]==============================*/
@@ -53,7 +61,7 @@ QueueHandle_t Queue_Data;
 
 /*=====[Implementations of public functions]=================================*/
 
-void Control_Sys( void* taskParmPtr )
+static void Control_Sys( void* taskParmPtr )
 {
 	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));
 	// ----- Task setup -----------------------------------
@@ -62,6 +70,7 @@ void Control_Sys( void* taskParmPtr )
 	portTickType xLastWakeTime = xTaskGetTickCount();
 	// ----- Task repeat for ever -------------------------
 	while(TRUE) {
+	//MEF Monitor Full Logic
 	   primControl(&prim);
 	// Send the task to the locked state during xPeriodicity
 	// (periodical delay)
@@ -69,7 +78,7 @@ void Control_Sys( void* taskParmPtr )
    }
 }
 
-void State_Test( void* taskParmPtr )
+static void State_Test( void* taskParmPtr )
 {
 	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));
 	// ----- Task setup -----------------------------------
@@ -79,7 +88,7 @@ void State_Test( void* taskParmPtr )
 	 // ----- Task repeat for ever -------------------------
 	while(TRUE) {
 		//Gestion del puerto UART
-		if(xSemaphoreTake(gatekeeper,1000))
+		if(xSemaphoreTake(gatekeeper,xPeriodicity))
 		{
 			switch( prim.state )
 			{
@@ -114,7 +123,7 @@ void State_Test( void* taskParmPtr )
 
 }
 
-void CurrentTmode( void* taskParmPtr )
+static void CurrentTmode( void* taskParmPtr )
 {
 	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));
 	// ----- Task setup -----------------------------------
@@ -124,7 +133,7 @@ void CurrentTmode( void* taskParmPtr )
 	// ----- Task repeat for ever -------------------------
 	while(TRUE) {
 		//Gestion del puerto UART
-		if(xSemaphoreTake(gatekeeper,1000))
+		if(xSemaphoreTake(gatekeeper,xPeriodicity))
 		 {
 
 			switch( TEST_MODE ) {
@@ -142,7 +151,7 @@ void CurrentTmode( void* taskParmPtr )
 
 }
 
-void Test_Mode( void* taskParmPtr )
+static void Test_Mode( void* taskParmPtr )
 {
 	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));
 	// ----- Task setup -----------------------------------
@@ -180,44 +189,66 @@ void Test_Mode( void* taskParmPtr )
 	}
 }
 
-void Server_Sys( void* taskParmPtr ){
+static void Server_Sys( void* taskParmPtr )
+{
 	// ----- Task setup -----------------------------------
 	bool_t aux=0;
+	uint8_t lect[BUFF_SIZE]={0,0,0,0,0,0};
 	// Tarea periodica cada 10 s
-	portTickType xPeriodicity =  1500 / portTICK_RATE_MS;
+	portTickType xPeriodicity =  500 / portTICK_RATE_MS;
 	portTickType xLastWakeTime = xTaskGetTickCount();
 	// ----- Task repeat for ever -------------------------
 	while(TRUE) {
-		uint8_t ref=120;
-		aux= SPI_Server(&serv,ref);
-		printf("\r\n SPI0 \r\n");
+		uint8_t ref=(uint8_t)prim.state;
+		taskENTER_CRITICAL();				//PROTECT THE SPI COMMUNICATION *IN*
+		aux= SPI_Server(&serv,ref,lect);
+		taskEXIT_CRITICAL();				//PROTECT THE SPI COMMUNICATION *OUT*
+		// Mensaje Recibido del Esclavo
+		/*
+		for(int i=0;i<5;i++){
+			printf("Caracter #%d: %d \n",i,lect[i]);
+		}
+		*/
+
+		//MUTEX, to avoid Priority Inversion, This task has a higher priority
+		//compare to ther tasks that makes use of the UART PORT.
+		if(xSemaphoreTake(gatekeeper,portMAX_DELAY))
+		{
+			if(aux)
+				printf("\r\n Good \r\n");
+			else
+				printf("\r\n Not so good \r\n");
+			xSemaphoreGive(gatekeeper);
+		}
+
 		// Send the task to the locked state during xPeriodicity
 		// (periodical delay)
 		vTaskDelayUntil( &xLastWakeTime, xPeriodicity );
 	}
 }
 
-void onRx(  void *noUsado )
+static void onRx(  void *noUsado )
 {
 	// Lectura de dato y borrado de flag de interrupcion por UART
 	datareceived = uartRxRead( prim.uart1.Uart );
 	//Verificacion para ceder el CPU a la tarea de interrupcion
-	BaseType_t checkIfYieldRequired;
-	checkIfYieldRequired = pdFALSE;
 	xSemaphoreGiveFromISR( xSemaphore, &checkIfYieldRequired );
 	portYIELD_FROM_ISR( checkIfYieldRequired );
 }
 
-void IntTaskUART(void* taskParmPtr )
+static void IntTaskUART(void* taskParmPtr )
 {
 	// ----- Task setup -----------------------------------
 	// ----- Task repeat for ever -------------------------
 	while(1)
 	{
-		if( xSemaphoreTake( xSemaphore, LONG_TIME ) == pdTRUE )
+		// Has an interrupt ocurred?
+		if( xSemaphoreTake( xSemaphore, portMAX_DELAY ) == pdTRUE )
 		{
 			UARTUpdate(&prim.uart1, datareceived);
 		}
+		//No Give because it comes from the Interrupt Handler
+		//MOre Info? Check onRx
 	}
 }
 
@@ -225,19 +256,21 @@ void Sys_Run( void* taskParmPtr )
 {
 	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));
 	// ----- Task setup -----------------------------------
-	// ----- Semaforo para gestion de Interrupcion UART
+	// ----- Semaphore to manage the UART Interrupt Task
 	xSemaphore = xSemaphoreCreateBinary();
-	// ----- Semaforo para gestion para la escritura en el puerto UART
+	// ----- Mutex for managing the UART resource
 	gatekeeper=xSemaphoreCreateRecursiveMutex();
+	// ----- Yield Flag Init
+	checkIfYieldRequired = pdFALSE;
 	// SPI configuration
 	SPI_INIT(&serv,SPI0, GPIO1);
-	// MEF 1 Init Dipsositivo Primario
+	// MEF 1 Init Dispositivo Primario
 	primInit(&prim);
 	// MEF 2 Init Test
 	fsmButtonInit(&button4,TEST_BUTTON);
-	// Seteo un callback al evento de recepcion y habilito su interrupcion
+	// Set of a callback for the event of receiving an UART character
 	uartCallbackSet(UART_USB, UART_RECEIVE, onRx, NULL);
-	// Habilito todas las interrupciones de UART_USB
+	// Enabling UART_USB Interruptions
 	uartInterrupt(UART_USB, true);
 
 	/*****************Creacion de Tareas*********************/
@@ -319,6 +352,7 @@ void Sys_Run( void* taskParmPtr )
 	portTickType xPeriodicity =  1 / portTICK_RATE_MS;
 	portTickType xLastWakeTime = xTaskGetTickCount();
 	// ----- Task repeat for ever -------------------------
+	/*Update Task to Refresh the MEFs related */
 	while(TRUE) {
 		primUpdates(&prim);
 		fsmButtonUpdate(&button4);

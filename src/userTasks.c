@@ -23,13 +23,11 @@
 
 /*=====[Definition macros of private constants]==============================*/
 
-#define TEST_PRINCIPAL_STATE 0
-#define TEST_COMM_FLAG 1
-
 /*=====[Private function-like macros]========================================*/
 
 /*=====[Definitions of private data types]===================================*/
 uint8_t datareceived=0;
+
 bool_t TEST_MODE = TEST_PRINCIPAL_STATE ;
 
 debounce_t button1;
@@ -46,9 +44,12 @@ TaskHandle_t IntTaskUARTHandle = NULL;
 BaseType_t checkIfYieldRequired;
 //Semaphore Init
 SemaphoreHandle_t xSemaphore = NULL;
-//Mutex Init
-xSemaphoreHandle gatekeeper=0;
-//QueueHandle_t Queue_Data;
+//Semaphore Counter Init
+SemaphoreHandle_t Lost_Comm=NULL;
+//Mutex UART Init
+xSemaphoreHandle gatekeeper=NULL;
+//Mutex Global Variable UARTdata Init
+xSemaphoreHandle gatekeeper1=NULL;
 
 
 /*=====[Definitions of external public global variables]=====================*/
@@ -63,7 +64,8 @@ xSemaphoreHandle gatekeeper=0;
 
 static void Control_Sys( void* taskParmPtr )
 {
-	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));
+	/*//DEBUG
+	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));*/
 	// ----- Task setup -----------------------------------
 	// Tarea periodica cada 40 ms
 	portTickType xPeriodicity =  40 / portTICK_RATE_MS;
@@ -80,7 +82,8 @@ static void Control_Sys( void* taskParmPtr )
 
 static void State_Test( void* taskParmPtr )
 {
-	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));
+	/*//DEBUG
+	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));*/
 	// ----- Task setup -----------------------------------
 	// Tarea periodica cada 1000 ms
 	portTickType xPeriodicity =  1000 / portTICK_RATE_MS;
@@ -125,7 +128,8 @@ static void State_Test( void* taskParmPtr )
 
 static void CurrentTmode( void* taskParmPtr )
 {
-	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));
+  /*//DEBUG
+	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));*/
 	// ----- Task setup -----------------------------------
 	// Tarea periodica cada 5000 ms
 	portTickType xPeriodicity =  5000 / portTICK_RATE_MS;
@@ -153,7 +157,8 @@ static void CurrentTmode( void* taskParmPtr )
 
 static void Test_Mode( void* taskParmPtr )
 {
-	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));
+	/*//DEBUG
+	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));*/
 	// ----- Task setup -----------------------------------
 	// Tarea periodica cada 100 ms
 	portTickType xPeriodicity =  100 / portTICK_RATE_MS;
@@ -189,38 +194,93 @@ static void Test_Mode( void* taskParmPtr )
 	}
 }
 
-static void Server_Sys( void* taskParmPtr )
+static void Server_SysW( void* taskParmPtr )
 {
 	// ----- Task setup -----------------------------------
-	bool_t aux=0;
-	uint8_t lect[BUFF_SIZE]={0,0,0,0,0,0};
 	// Tarea periodica cada 10 s
-	portTickType xPeriodicity =  500 / portTICK_RATE_MS;
+	portTickType xPeriodicity =  3000 / portTICK_RATE_MS;
 	portTickType xLastWakeTime = xTaskGetTickCount();
 	// ----- Task repeat for ever -------------------------
 	while(TRUE) {
 		uint8_t ref=(uint8_t)prim.state;
 		taskENTER_CRITICAL();				//PROTECT THE SPI COMMUNICATION *IN*
-		aux= SPI_Server(&serv,ref,lect);
+		SPI_ServerW(&serv,ref);
 		taskEXIT_CRITICAL();				//PROTECT THE SPI COMMUNICATION *OUT*
+		// Send the task to the locked state during xPeriodicity
+		// (periodical delay)
+		vTaskDelayUntil( &xLastWakeTime, xPeriodicity );
+	}
+}
+
+static void Reset_Slave(void* taskParmPtr )
+{
+	// ----- Task setup -----------------------------------
+	GPIOOutConfig(Reset_SPI_Slave_pin);				//Configure the SS Pin as Slave
+	GPIOWrite(Reset_SPI_Slave_pin,LOW_G);			//Release the Slave
+	vTaskDelay(1000);
+	GPIOWrite(Reset_SPI_Slave_pin,HIGH_G);			//Release the Slave
+	char i=0;
+	for(i;i<=MAX_COMM_LOST;i++){
+		xSemaphoreGive(Lost_Comm);
+	}
+
+	vTaskDelete(NULL);
+
+}
+
+static void Server_SysR( void* taskParmPtr )
+{
+	// ----- Task setup -----------------------------------
+	bool_t aux=TRUE;
+	uint8_t lect[BUFF_SIZE]={0,0,0,0,0,0};
+	vTaskDelay(750 / portTICK_RATE_MS);		//Delay to wait for the first SPI writing command
+	// Tarea periodica cada 10 s
+	portTickType xPeriodicity =  3000 / portTICK_RATE_MS;
+	portTickType xLastWakeTime = xTaskGetTickCount();
+	// ----- Task repeat for ever -------------------------
+	while(TRUE) {
+
+		aux=SPI_ServerR(&serv,lect);
 		// Mensaje Recibido del Esclavo
-		/*
+		/*//DEBUG
 		for(int i=0;i<5;i++){
 			printf("Caracter #%d: %d \n",i,lect[i]);
 		}
 		*/
-
 		//MUTEX, to avoid Priority Inversion, This task has a higher priority
-		//compare to ther tasks that makes use of the UART PORT.
-		if(xSemaphoreTake(gatekeeper,portMAX_DELAY))
+		//compare to the other tasks that makes use of the UART PORT.
+		if(xSemaphoreTake(gatekeeper,xPeriodicity))
 		{
-			if(aux)
+			if(aux){
 				printf("\r\n Good \r\n");
-			else
+				xSemaphoreGive(Lost_Comm);
+			}else
+			{
 				printf("\r\n Not so good \r\n");
-			xSemaphoreGive(gatekeeper);
-		}
+				xSemaphoreGive(gatekeeper);						//For the Last Cycle of the Reset_Slave It needs to release the UART PORT
+				if(xSemaphoreTake(  Lost_Comm  , xPeriodicity )==pdTRUE)
+				{
+					printf("\r\n Available attempts: %d \r\n", uxSemaphoreGetCount(Lost_Comm));
 
+				}else if(uxSemaphoreGetCount(Lost_Comm)==0)
+				{
+					printf("\r\n Reset Slave \r\n");
+					xSemaphoreGive(gatekeeper);					//Releaseof the Semaphore before moving to Reset
+					BaseType_t def= xTaskCreate(
+								Reset_Slave,					// Function that implements the task.
+								(const char *)"Reset_Slave",	// Text name for the task.
+								configMINIMAL_STACK_SIZE,		// Stack size in words, not bytes.
+								0,								// Parameter passed into the task.
+								tskIDLE_PRIORITY+3,				// Priority at which the task is created.
+								0 );							// Pointer to the task created in the system
+
+						if(def==0){
+							printf("Error en la creacion de la Tarea Reset_Slave");
+						}
+				}
+			}
+		xSemaphoreGive(gatekeeper);
+		}
 		// Send the task to the locked state during xPeriodicity
 		// (periodical delay)
 		vTaskDelayUntil( &xLastWakeTime, xPeriodicity );
@@ -254,12 +314,17 @@ static void IntTaskUART(void* taskParmPtr )
 
 void Sys_Run( void* taskParmPtr )
 {
-	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));
+	/*//DEBUG
+	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));*/
 	// ----- Task setup -----------------------------------
 	// ----- Semaphore to manage the UART Interrupt Task
 	xSemaphore = xSemaphoreCreateBinary();
-	// ----- Mutex for managing the UART resource
+	// ----- Semaphore to manage the COMM LOST Protocol
+	Lost_Comm = xSemaphoreCreateCounting( MAX_COMM_LOST , INITIAL_COMM_LOST );
+	// ----- Mutex for managing the UART writing resource
 	gatekeeper=xSemaphoreCreateRecursiveMutex();
+	// ----- Mutex for managing the UART global variable for UART data received
+	gatekeeper1=xSemaphoreCreateRecursiveMutex();
 	// ----- Yield Flag Init
 	checkIfYieldRequired = pdFALSE;
 	// SPI configuration
@@ -272,13 +337,15 @@ void Sys_Run( void* taskParmPtr )
 	uartCallbackSet(UART_USB, UART_RECEIVE, onRx, NULL);
 	// Enabling UART_USB Interruptions
 	uartInterrupt(UART_USB, true);
+	GPIOOutConfig(Reset_SPI_Slave_pin);				//Configure the Reset Slave SPI Pin as Output
+	GPIOWrite(Reset_SPI_Slave_pin,HIGH_G);			//Configure the Reset Slave SPI Pin as HIGH
 
 	/*****************Creacion de Tareas*********************/
 
 	BaseType_t res= xTaskCreate(
 			Control_Sys,					// Function that implements the task.
 			(const char *)"Control_Sys",	// Text name for the task.
-			configMINIMAL_STACK_SIZE*4,		// Stack size in words, not bytes.
+			configMINIMAL_STACK_SIZE*2,		// Stack size in words, not bytes.
 			0,								// Parameter passed into the task.
 			tskIDLE_PRIORITY+2,				// Priority at which the task is created.
 			0 );							// Pointer to the task created in the system
@@ -336,15 +403,27 @@ void Sys_Run( void* taskParmPtr )
 		}
 
 	res= xTaskCreate(
-			Server_Sys,					// Function that implements the task.
-			(const char *)"Server_Sys",	// Text name for the task.
+			Server_SysW,					// Function that implements the task.
+			(const char *)"Server_SysW",	// Text name for the task.
 			configMINIMAL_STACK_SIZE*2, 	// Stack size in words, not bytes.
 			0,		    // Parameter passed into the task.
 			tskIDLE_PRIORITY+2,    			// Priority at which the task is created.
 			IntTaskUARTHandle ); 			// Pointer to the task created in the system
 
 	if(res==0){
-		printf("Error en la creacion de la Tarea Server_Sys");
+		printf("Error en la creacion de la Tarea Server_SysW");
+		}
+
+	res= xTaskCreate(
+			Server_SysR,					// Function that implements the task.
+			(const char *)"Server_SysR",	// Text name for the task.
+			configMINIMAL_STACK_SIZE*2, 	// Stack size in words, not bytes.
+			0,		    // Parameter passed into the task.
+			tskIDLE_PRIORITY+2,    			// Priority at which the task is created.
+			IntTaskUARTHandle ); 			// Pointer to the task created in the system
+
+	if(res==0){
+		printf("Error en la creacion de la Tarea Server_SysR");
 		}
 
 	/*********************************************************/

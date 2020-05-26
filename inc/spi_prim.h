@@ -60,7 +60,10 @@ void SPI_INIT(spi_Server_t * pServer1, spiMap_t spi, gpioMap_t pin);
 	@see SPI_INIT.
 
 **/
-bool_t SPI_Server(spi_Server_t * pServer1, uint8_t data,uint8_t * readv);
+void SPI_ServerW(spi_Server_t * pServer1, uint8_t data);
+
+
+bool_t SPI_ServerR(spi_Server_t * pServer1,uint8_t * readv);
 
 /*=====[Prototypes (declarations) of public interrupt functions]=============*/
 

@@ -35,35 +35,34 @@ void SPI_INIT(spi_Server_t * pServer1, spiMap_t spi, gpioMap_t pin){
 	spiInit2( pServer1->spi );					// Configuration of the SPI Parameters
 }
 
-bool_t SPI_Server(spi_Server_t * pServer1, uint8_t data, uint8_t * readv )
+void SPI_ServerW(spi_Server_t * pServer1, uint8_t data )
 {
-	bool_t aux=TRUE;
+
 	//Enable the Slave SSPin LOW
 	GPIOWrite(pServer1->pin,LOW_G);
 
-	//TODO SPlit this in 2 tasks 1 for reading and one for writing, we will be
-	//needing a mutex for the protection of the SPI resource.
+	//Write Command in ASCII Write	 //     w   r   i   t   e  _  c   u   r   r   e   n   t  ""  s   t   a  t  e   :
+	uint8_t Write_Command[BUFF_SIZE]= {2,0,119,114,105,116,101,95,99,117,114,114,101,110,116,32,115,116,97,116,101,58,data+48};
+	spiWrite2( pServer1->spi ,Write_Command,32);	//write the command and the current state as a byte with 6 states
 
-	//Flag for SPI Reading
-	if(reading){
-		uint8_t Read_Command[BUFF_SIZE]= {3,0};		//For Reading the ESP8266 needs to receive the bytes 3 and after that a 0
-		spiWrite2( pServer1->spi ,Read_Command,2);	//After that we get the MISO signal.
-		spiRead2( pServer1->spi ,readv,32);			//WARNING The length of the SPI Message is 32 bytes
-		reading=FALSE;								// clear the flag.
-
-	}
-	else{
-		//Write Command in ASCII Write	 //     w   r   i   t   e  _  c   u   r   r   e   n   t  ""  s   t   a  t  e   :
-		uint8_t Write_Command[BUFF_SIZE]= {2,0,119,114,105,116,101,95,99,117,114,114,101,110,116,32,115,116,97,116,101,58,data+48};
-		spiWrite2( pServer1->spi ,Write_Command,32);	//read the command and the current state as a byte with 6 states
-		for(char i=0;i<=5-1;i++)
-		{
-			if(readv[i]!=Check[i])						//Did we get an _OK!_ answer?
-				aux=FALSE;
-		}
-		reading=TRUE;									//set flag
-	}
 	GPIOWrite(pServer1->pin,HIGH_G);				//Release the SPI Slave
 
-	return aux;
 }
+
+
+bool_t SPI_ServerR(spi_Server_t * pServer1, uint8_t * readv )
+{
+	bool_t aux=TRUE;
+	GPIOWrite(pServer1->pin,LOW_G);					//Enable the Slave SSPin LOW
+	uint8_t Read_Command[BUFF_SIZE]= {3,0};			//For Reading the ESP8266 needs to receive the bytes 3 and after that a 0
+	spiWrite2( pServer1->spi ,Read_Command,2);		//After that we get the MISO signal.
+	spiRead2( pServer1->spi ,readv,32);				//WARNING The length of the SPI Message is 32 bytes
+
+	for(char i=0;i<=5-1;i++)
+	{
+		if(readv[i]!=Check[i])						//Did we get an _OK!_ answer?
+			aux=FALSE;
+	}
+	GPIOWrite(pServer1->pin,HIGH_G);				//Release the SPI Slave
+	return aux;
+	}

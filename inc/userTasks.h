@@ -25,7 +25,13 @@ extern "C" {
 #endif
 
 /*=====[Definition macros of public constants]===============================*/
-#define LONG_TIME 0xffff
+#define MAX_COMM_LOST 3			//Used for the Semaphore in charge of the Slave Reset
+#define INITIAL_COMM_LOST 3		//Used for the Semaphore in charge of the Slave Reset
+
+#define TEST_PRINCIPAL_STATE 0
+#define TEST_COMM_FLAG 1
+
+# define Reset_SPI_Slave_pin GPIO5
 /*=====[Public function-like macros]=========================================*/
 
 /*=====[Definitions of public data types]====================================*/
@@ -52,7 +58,7 @@ void Sys_Run( void* taskParmPtr );  // Task declaration
 /** Task related to the entire logic of the system, it is structured as a MEF, it requires
  * the call of the update function periodically.
  * Task Name: "Control_Sys"
- * Priority: +1
+ * Priority: +2
  * Parameter: None
  * Trigger: Periodicity, 40ms
 
@@ -123,7 +129,12 @@ static void Test_Mode( void* taskParmPtr );
 	@note This Task is created by the Sys_Run function..
 	@see Sys_Run
 **/
-static void Server_Sys( void* taskParmPtr );
+static void Server_SysW( void* taskParmPtr );
+
+
+static void Server_SysR( void* taskParmPtr );
+
+static void Reset_Slave(void* taskParmPtr );
 
 /** Program associated for the UART received interrupt, it stores the received character and
  * releases the CPU and yields it to the IntTaskUART, to the processingofthe info.
@@ -142,7 +153,7 @@ static void onRx(  void *noUsado );
  *
  *
  * Task Name: "IntTaskUART"
- * Priority: +1
+ * Priority: +2
  * Parameter: None
  * Trigger: UART character received
 

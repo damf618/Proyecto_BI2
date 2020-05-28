@@ -26,12 +26,15 @@ uint8_t Check[BUFF_SIZE]= {95,79,75,33,95,0};
 
 /*=====[Functions, program entry point after power on or reset]==========*/
 
-void SPI_INIT(spi_Server_t * pServer1, spiMap_t spi, gpioMap_t pin){
+void SPI_INIT(spi_Server_t * pServer1, spiMap_t spi, gpioMap_t pin, gpioMap_t resetpin){
 
 	pServer1->spi=spi;							//Set the SPI PORT
 	pServer1->pin=pin;							//Set the SS Pin
-	GPIOOutConfig(pServer1->pin);				//Configure the SS Pin as Slave
+	pServer1->RSTpin=resetpin;					//Set RST Pin
+	GPIOOutConfig(pServer1->pin);				//Configure the SS Pin as Slave as Output
 	GPIOWrite(pServer1->pin,HIGH_G);			//Release the Slave
+	GPIOOutConfig(pServer1->RSTpin);			//Configure the Reset Slave SPI Pin as Output
+	GPIOWrite(pServer1->RSTpin,HIGH_G);			//set the Reset Slave SPI Pin as HIGH
 	spiInit2( pServer1->spi );					// Configuration of the SPI Parameters
 }
 
@@ -65,4 +68,21 @@ bool_t SPI_ServerR(spi_Server_t * pServer1, uint8_t * readv )
 	}
 	GPIOWrite(pServer1->pin,HIGH_G);				//Release the SPI Slave
 	return aux;
+}
+
+void reset_SPI(spi_Server_t * pServer1, uint8_t stage )
+{
+	if(stage==PRE_BOOTING){
+		GPIOWrite(pServer1->pin,LOW_G);						//Slave SSPin LOW, FOR ESP8266 BOOTING
+		GPIOWrite(pServer1->RSTpin,LOW_G);					//RESET Pin LOW
 	}
+	else if(stage==BOOTING){
+		GPIOWrite(pServer1->pin,LOW_G);						//Slave SSPin LOW, FOR ESP8266 BOOTING
+		GPIOWrite(pServer1->RSTpin,HIGH_G);					//RESET Pin HIGH, Booting Stage
+	}
+	else if (stage==POST_BOOTING){
+		GPIOWrite(pServer1->pin,HIGH_G);					//Slave SSPin HIGH
+		GPIOWrite(pServer1->RSTpin,HIGH_G);					//NORMAL
+	}
+}
+

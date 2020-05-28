@@ -32,6 +32,8 @@ extern "C" {
 #define TEST_COMM_FLAG 1
 
 # define Reset_SPI_Slave_pin GPIO5
+#define SS_SPI_pin GPIO1
+
 /*=====[Public function-like macros]=========================================*/
 
 /*=====[Definitions of public data types]====================================*/

@@ -20,6 +20,7 @@
 #include "semphr.h"
 #include "sapi.h"
 #include "spi_prim.h"
+#include "GPIOINTSETUP.h"
 
 /*=====[Definition macros of private constants]==============================*/
 
@@ -30,7 +31,6 @@ uint8_t datareceived=0;
 
 bool_t TEST_MODE = TEST_PRINCIPAL_STATE ;
 
-debounce_t button1;
 debounce_t button4;
 
 dprimario_t prim;
@@ -44,12 +44,12 @@ TaskHandle_t IntTaskUARTHandle = NULL;
 BaseType_t checkIfYieldRequired;
 //Semaphore Init
 SemaphoreHandle_t xSemaphore = NULL;
+//Semaphore SPI Write Init
+SemaphoreHandle_t Write_Spi = NULL;
 //Semaphore Counter Init
 SemaphoreHandle_t Lost_Comm=NULL;
 //Mutex UART Init
 xSemaphoreHandle gatekeeper=NULL;
-//Mutex Global Variable UARTdata Init
-xSemaphoreHandle gatekeeper1=NULL;
 
 
 /*=====[Definitions of external public global variables]=====================*/
@@ -59,6 +59,7 @@ xSemaphoreHandle gatekeeper1=NULL;
 /*=====[Definitions of private global variables]=============================*/
 
 /*=====[Prototypes (declarations) of private functions]======================*/
+
 
 /*=====[Implementations of public functions]=================================*/
 
@@ -203,9 +204,9 @@ static void Server_SysW( void* taskParmPtr )
 	// ----- Task repeat for ever -------------------------
 	while(TRUE) {
 		uint8_t ref=(uint8_t)prim.state;
-		taskENTER_CRITICAL();				//PROTECT THE SPI COMMUNICATION *IN*
 		SPI_ServerW(&serv,ref);
-		taskEXIT_CRITICAL();				//PROTECT THE SPI COMMUNICATION *OUT*
+		//Semaphore to manage the READING from SPI SLAVE
+		xSemaphoreGive(Write_Spi);
 		// Send the task to the locked state during xPeriodicity
 		// (periodical delay)
 		vTaskDelayUntil( &xLastWakeTime, xPeriodicity );
@@ -216,14 +217,15 @@ static void Reset_Slave(void* taskParmPtr )
 {
 	// ----- Task setup -----------------------------------
 	GPIOOutConfig(Reset_SPI_Slave_pin);				//Configure the SS Pin as Slave
-	GPIOWrite(Reset_SPI_Slave_pin,LOW_G);			//Release the Slave
-	vTaskDelay(1000);
-	GPIOWrite(Reset_SPI_Slave_pin,HIGH_G);			//Release the Slave
+	reset_SPI(&serv,PRE_BOOTING);					//BOOTING Preparations
+	vTaskDelay(500);
+	reset_SPI(&serv,BOOTING);						//BOOTING SEQUENCE
+	vTaskDelay(500);
+	reset_SPI(&serv,POST_BOOTING);					//POST BOOTING Config
 	char i=0;
 	for(i;i<=MAX_COMM_LOST;i++){
 		xSemaphoreGive(Lost_Comm);
 	}
-
 	vTaskDelete(NULL);
 
 }
@@ -238,9 +240,13 @@ static void Server_SysR( void* taskParmPtr )
 	portTickType xPeriodicity =  3000 / portTICK_RATE_MS;
 	portTickType xLastWakeTime = xTaskGetTickCount();
 	// ----- Task repeat for ever -------------------------
-	while(TRUE) {
-
-		aux=SPI_ServerR(&serv,lect);
+	while(TRUE)
+	{
+		//Semaphore to manage the READING from SPI SLAVE
+		if(xSemaphoreTake(Write_Spi,xPeriodicity))
+		{
+			aux=SPI_ServerR(&serv,lect);
+		}
 		// Mensaje Recibido del Esclavo
 		/*//DEBUG
 		for(int i=0;i<5;i++){
@@ -265,7 +271,7 @@ static void Server_SysR( void* taskParmPtr )
 				}else if(uxSemaphoreGetCount(Lost_Comm)==0)
 				{
 					printf("\r\n Reset Slave \r\n");
-					xSemaphoreGive(gatekeeper);					//Releaseof the Semaphore before moving to Reset
+					xSemaphoreGive(gatekeeper);					//Release of the Semaphore before moving to Reset
 					BaseType_t def= xTaskCreate(
 								Reset_Slave,					// Function that implements the task.
 								(const char *)"Reset_Slave",	// Text name for the task.
@@ -283,10 +289,12 @@ static void Server_SysR( void* taskParmPtr )
 		}
 		// Send the task to the locked state during xPeriodicity
 		// (periodical delay)
+
 		vTaskDelayUntil( &xLastWakeTime, xPeriodicity );
 	}
 }
 
+/*Interrupt Code UART*/
 static void onRx(  void *noUsado )
 {
 	// Lectura de dato y borrado de flag de interrupcion por UART
@@ -294,6 +302,24 @@ static void onRx(  void *noUsado )
 	//Verificacion para ceder el CPU a la tarea de interrupcion
 	xSemaphoreGiveFromISR( xSemaphore, &checkIfYieldRequired );
 	portYIELD_FROM_ISR( checkIfYieldRequired );
+}
+
+/*Interrupt Code TEC4*/
+/*Hubo que eliminar la definicion de la funcion de Interrupcion GPIO1 en...
+ * /home/daniel/Desktop/CIAA/firmware_v3-master/libs/sapi/sapi_v0.5.2/external_peripherals/src/sapi_ultrasonic_hcsr04.c
+ */
+void PININT_IRQ_HANDLER(void) {
+	// Se da aviso que se trato la interrupcion
+	Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX));
+
+	// Se realiza alguna accion.
+	printf("MUEJEJEJEJEJEJEJEJEJ");
+}
+/*Interrupt Code GROUP GPIO0*/
+void  GINT0_IRQHandler(void){
+
+	Chip_GPIOGP_ClearIntStatus(LPC_GPIOGROUP , 0);
+	printf("MUAJAJAJAJAJAJAJA");
 }
 
 static void IntTaskUART(void* taskParmPtr )
@@ -319,16 +345,32 @@ void Sys_Run( void* taskParmPtr )
 	// ----- Task setup -----------------------------------
 	// ----- Semaphore to manage the UART Interrupt Task
 	xSemaphore = xSemaphoreCreateBinary();
+	if( xSemaphore == NULL )
+	{
+		printf("Error en la creacion de Semaforo Interrupcion UART");
+	}
+	// ----- Semaphore to manage the SPI Reading after a write
+	Write_Spi = xSemaphoreCreateBinary();
+	if( Write_Spi == NULL )
+	{
+		printf("Error en la creacion de Semaforo Escritura SPI");
+	}
 	// ----- Semaphore to manage the COMM LOST Protocol
 	Lost_Comm = xSemaphoreCreateCounting( MAX_COMM_LOST , INITIAL_COMM_LOST );
+	if( Lost_Comm == NULL )
+	{
+		printf("Error en la creacion de Semaforo Contador Perdida SPI");
+	}
 	// ----- Mutex for managing the UART writing resource
 	gatekeeper=xSemaphoreCreateRecursiveMutex();
-	// ----- Mutex for managing the UART global variable for UART data received
-	gatekeeper1=xSemaphoreCreateRecursiveMutex();
+	if( gatekeeper == NULL )
+	{
+		printf("Error en la creacion de Mutex Escritura UART");
+	}
 	// ----- Yield Flag Init
 	checkIfYieldRequired = pdFALSE;
 	// SPI configuration
-	SPI_INIT(&serv,SPI0, GPIO1);
+	SPI_INIT(&serv,SPI0, SS_SPI_pin,Reset_SPI_Slave_pin);
 	// MEF 1 Init Dispositivo Primario
 	primInit(&prim);
 	// MEF 2 Init Test
@@ -337,9 +379,8 @@ void Sys_Run( void* taskParmPtr )
 	uartCallbackSet(UART_USB, UART_RECEIVE, onRx, NULL);
 	// Enabling UART_USB Interruptions
 	uartInterrupt(UART_USB, true);
-	GPIOOutConfig(Reset_SPI_Slave_pin);				//Configure the Reset Slave SPI Pin as Output
-	GPIOWrite(Reset_SPI_Slave_pin,HIGH_G);			//Configure the Reset Slave SPI Pin as HIGH
-
+	// Enabling GPIO Interruptions
+	GPIOInt_INIT();
 	/*****************Creacion de Tareas*********************/
 
 	BaseType_t res= xTaskCreate(

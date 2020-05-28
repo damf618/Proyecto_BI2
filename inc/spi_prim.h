@@ -24,12 +24,17 @@ extern "C" {
 
 /*=====[Definition macros of public constants]===============================*/
 #define BUFF_SIZE 32
+
+#define PRE_BOOTING 0
+#define BOOTING 1
+#define POST_BOOTING 2
 /*=====[Public function-like macros]=========================================*/
 
 /*=====[Definitions of public data types]====================================*/
 typedef struct{
 	spiMap_t spi;
 	gpioMap_t pin;
+	gpioMap_t RSTpin;
 }spi_Server_t;
 
 /*=====[Prototypes (declarations) of public functions]=======================*/
@@ -39,10 +44,11 @@ typedef struct{
 	@param pServer1 element of type *spi_Server_t* with all SPI data types needed.
 	@param spi SPI Port to be used for the Monitor Program.
 	@param pin selected for the SS function.
+	@param pin selected for the RESET function.
 	@note The entire protocol is based on the SPISlave.h protocol for the NodeMCU.
 
 **/
-void SPI_INIT(spi_Server_t * pServer1, spiMap_t spi, gpioMap_t pin);
+void SPI_INIT(spi_Server_t * pServer1, spiMap_t spi, gpioMap_t pin,gpioMap_t resetpin);
 
 /** 2 Modes of working, Depending of the previous action taken.
  * Mode A we sent the Writing Command. We ask for the NodeMCU to upload the
@@ -64,6 +70,8 @@ void SPI_ServerW(spi_Server_t * pServer1, uint8_t data);
 
 
 bool_t SPI_ServerR(spi_Server_t * pServer1,uint8_t * readv);
+
+void reset_SPI(spi_Server_t * pServer1,uint8_t stage );
 
 /*=====[Prototypes (declarations) of public interrupt functions]=============*/
 

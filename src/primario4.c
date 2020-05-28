@@ -95,7 +95,6 @@ static void ButtonCheck(dprimario_t * prim, char casea, char casef,char casen ){
 }
 
 // Verify the transition conditions related to uart codes
-
 static void UartCheck(dprimario_t * prim,char mode,char nextmode ,char uartstate ){
 	if(prim->uart1.mode==mode){						//Am I listening to Alarm UART codes?
 		if((UARTRead(&prim->uart1)==UART_received)){  //Was an Alarm code received?
@@ -128,7 +127,6 @@ void primUpdates(dprimario_t * pPrimario){
 	fsmButtonUpdate(&pPrimario->boton1);			//Update of all the MEFSs involved
 	fsmButtonUpdate(&pPrimario->boton2);
 	fsmButtonUpdate(&pPrimario->boton3);
-
 }
 
 // It sets initial conditions for the entire program

@@ -52,6 +52,7 @@ extern "C" {
 #define PININT_IRQ_HANDLER   GPIO1_IRQHandler   // GPIO interrupt IRQ function name
 #define PININT_NVIC_NAME     PIN_INT1_IRQn      // GPIO interrupt NVIC interrupt name
 
+#define PRIORIDADES 50
 /*=====[Public function-like macros]=========================================*/
 
 /*=====[Definitions of public data types]====================================*/

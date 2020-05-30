@@ -40,8 +40,8 @@ spi_Server_t serv;
 //TODO SEND ALLTHIS NEW FEATURES TO THE PRIMARIO LIBRARY
 //UART Interrupt Task Handler
 TaskHandle_t IntTaskUARTHandle = NULL;
-// Yield used in the Interrupt to yield the CPU to the Interruption related Task
-BaseType_t checkIfYieldRequired;
+TaskHandle_t IntTaskGPIO1Handle = NULL;
+TaskHandle_t IntTaskGPIO2Handle = NULL;
 //Semaphore Init
 SemaphoreHandle_t xSemaphore = NULL;
 //Semaphore SPI Write Init
@@ -50,7 +50,12 @@ SemaphoreHandle_t Write_Spi = NULL;
 SemaphoreHandle_t Lost_Comm=NULL;
 //Mutex UART Init
 xSemaphoreHandle gatekeeper=NULL;
-
+//Semaphore Init TEC Primario Logic
+SemaphoreHandle_t PrimSemaphore = NULL;
+//Semaphore Init  TEC Test Logic
+SemaphoreHandle_t TestSemaphore = NULL;
+//Queue Init GPIO Init
+QueueHandle_t GPIOQueue = NULL;
 
 /*=====[Definitions of external public global variables]=====================*/
 
@@ -294,47 +299,86 @@ static void Server_SysR( void* taskParmPtr )
 	}
 }
 
-/*Interrupt Code UART*/
 static void onRx(  void *noUsado )
 {
+	//TODO Anadir QUEUE Para leer y pasarlo como parametro de la Tarea UART
 	// Lectura de dato y borrado de flag de interrupcion por UART
 	datareceived = uartRxRead( prim.uart1.Uart );
+
+	BaseType_t checkIfYieldRequired = pdFALSE;
 	//Verificacion para ceder el CPU a la tarea de interrupcion
 	xSemaphoreGiveFromISR( xSemaphore, &checkIfYieldRequired );
 	portYIELD_FROM_ISR( checkIfYieldRequired );
 }
 
-/*Interrupt Code TEC4*/
+//PROBABLEMENTE NECESITE UN WRAPPER
 /*Hubo que eliminar la definicion de la funcion de Interrupcion GPIO1 en...
  * /home/daniel/Desktop/CIAA/firmware_v3-master/libs/sapi/sapi_v0.5.2/external_peripherals/src/sapi_ultrasonic_hcsr04.c
  */
 void PININT_IRQ_HANDLER(void) {
+
 	// Se da aviso que se trato la interrupcion
 	Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX));
+	BaseType_t checkIfYieldRequired2= pdFALSE;
+	//primUpdates(&prim);
+	//Verificacion para ceder el CPU a la tarea de interrupcion
+	xSemaphoreGiveFromISR( PrimSemaphore, &checkIfYieldRequired2 );
+	portYIELD_FROM_ISR( checkIfYieldRequired2 );
 
-	// Se realiza alguna accion.
-	printf("MUEJEJEJEJEJEJEJEJEJ");
 }
-/*Interrupt Code GROUP GPIO0*/
-void  GINT0_IRQHandler(void){
 
+//PROBABLEMENTE NECESITE UN WRAPPER
+void  GINT0_IRQHandler(void){
+	uint8_t aux=0;
 	Chip_GPIOGP_ClearIntStatus(LPC_GPIOGROUP , 0);
-	printf("MUAJAJAJAJAJAJAJA");
+	BaseType_t checkIfYieldRequired1 = pdFALSE;
+	//Verificacion para ceder el CPU a la tarea de interrupcion
+	xSemaphoreGiveFromISR( PrimSemaphore, &checkIfYieldRequired1 );
+	portYIELD_FROM_ISR( checkIfYieldRequired1 );
+
+	//fsmButtonUpdate(&button4);
 }
 
 static void IntTaskUART(void* taskParmPtr )
 {
+	uint8_t aux=0;
 	// ----- Task setup -----------------------------------
 	// ----- Task repeat for ever -------------------------
 	while(1)
 	{
 		// Has an interrupt ocurred?
-		if( xSemaphoreTake( xSemaphore, portMAX_DELAY ) == pdTRUE )
+		if( xQueueReceive( GPIOQueue,&aux ,portMAX_DELAY ) == pdTRUE )
 		{
 			UARTUpdate(&prim.uart1, datareceived);
 		}
+		taskYIELD();
 		//No Give because it comes from the Interrupt Handler
 		//MOre Info? Check onRx
+	}
+}
+
+static void IntGPIOPrim(void* taskParmPtr )
+{
+	uint8_t aux=0;
+	while(TRUE) {
+
+		if( xQueueReceive( GPIOQueue,&aux, portMAX_DELAY ) == pdTRUE )
+		{
+			printf("Got in");
+		}
+		taskYIELD();
+	}
+}
+
+static void IntGPIOTest(void* taskParmPtr )
+{
+	while(TRUE) {
+
+		if( xSemaphoreTake( TestSemaphore, portMAX_DELAY ) == pdTRUE )
+		{
+			printf("Got in");
+		}
+		taskYIELD();
 	}
 }
 
@@ -361,14 +405,26 @@ void Sys_Run( void* taskParmPtr )
 	{
 		printf("Error en la creacion de Semaforo Contador Perdida SPI");
 	}
+	// ----- Semaphore to manage the TEC Primario Logic
+	PrimSemaphore = xSemaphoreCreateBinary();
+	if( PrimSemaphore == NULL )
+	{
+		printf("Error en la creacion de Semaforo TEC Primarios");
+	}
+	// ----- Semaphore to manage the TEC Test Logic
+	TestSemaphore = xSemaphoreCreateBinary();
+	if( TestSemaphore == NULL )
+	{
+		printf("Error en la creacion de Semaforo TEC Test");
+	}
 	// ----- Mutex for managing the UART writing resource
 	gatekeeper=xSemaphoreCreateRecursiveMutex();
 	if( gatekeeper == NULL )
 	{
 		printf("Error en la creacion de Mutex Escritura UART");
 	}
-	// ----- Yield Flag Init
-	checkIfYieldRequired = pdFALSE;
+	/* QUEUE para GPIO*/
+	GPIOQueue=xQueueCreate(1,sizeof(uint8_t));
 	// SPI configuration
 	SPI_INIT(&serv,SPI0, SS_SPI_pin,Reset_SPI_Slave_pin);
 	// MEF 1 Init Dispositivo Primario
@@ -381,6 +437,7 @@ void Sys_Run( void* taskParmPtr )
 	uartInterrupt(UART_USB, true);
 	// Enabling GPIO Interruptions
 	GPIOInt_INIT();
+
 	/*****************Creacion de Tareas*********************/
 
 	BaseType_t res= xTaskCreate(
@@ -398,7 +455,7 @@ void Sys_Run( void* taskParmPtr )
 	res= xTaskCreate(
 			Test_Mode,						// Function that implements the task.
 			(const char *)"Test_Mode",		// Text name for the task.
-			configMINIMAL_STACK_SIZE*2,		// Stack size in words, not bytes.
+			configMINIMAL_STACK_SIZE*1,		// Stack size in words, not bytes.
 			0,								// Parameter passed into the task.
 			tskIDLE_PRIORITY+1,				// Priority at which the task is created.
 			0 );							// Pointer to the task created in the system
@@ -410,7 +467,7 @@ void Sys_Run( void* taskParmPtr )
 	res= xTaskCreate(
 			CurrentTmode,					// Function that implements the task.
 			(const char *)"CurrentTmode",	// Text name for the task.
-			configMINIMAL_STACK_SIZE*2,		// Stack size in words, not bytes.
+			configMINIMAL_STACK_SIZE*1,		// Stack size in words, not bytes.
 			0,      						// Parameter passed into the task.
 			tskIDLE_PRIORITY+1,         	// Priority at which the task is created.
 			0 );                          	// Pointer to the task created in the system
@@ -449,7 +506,7 @@ void Sys_Run( void* taskParmPtr )
 			configMINIMAL_STACK_SIZE*2, 	// Stack size in words, not bytes.
 			0,		    // Parameter passed into the task.
 			tskIDLE_PRIORITY+2,    			// Priority at which the task is created.
-			IntTaskUARTHandle ); 			// Pointer to the task created in the system
+			0 ); 			// Pointer to the task created in the system
 
 	if(res==0){
 		printf("Error en la creacion de la Tarea Server_SysW");
@@ -461,21 +518,46 @@ void Sys_Run( void* taskParmPtr )
 			configMINIMAL_STACK_SIZE*2, 	// Stack size in words, not bytes.
 			0,		    // Parameter passed into the task.
 			tskIDLE_PRIORITY+2,    			// Priority at which the task is created.
-			IntTaskUARTHandle ); 			// Pointer to the task created in the system
+			0 ); 			// Pointer to the task created in the system
 
 	if(res==0){
 		printf("Error en la creacion de la Tarea Server_SysR");
 		}
 
+	res= xTaskCreate(
+			IntGPIOPrim,					// Function that implements the task.
+			(const char *)"IntGPIOPrim",	// Text name for the task.
+			configMINIMAL_STACK_SIZE, 		// Stack size in words, not bytes.
+			0,		   						// Parameter passed into the task.
+			tskIDLE_PRIORITY+2,    			// Priority at which the task is created.
+			IntTaskGPIO1Handle ); 			// Pointer to the task created in the system
+
+	if(res==0){
+		printf("Error en la creacion de la Tarea IntGPIOPrim");
+		}
+
+	res= xTaskCreate(
+			IntGPIOTest,					// Function that implements the task.
+			(const char *)"IntGPIOTest",	// Text name for the task.
+			configMINIMAL_STACK_SIZE, 		// Stack size in words, not bytes.
+			0,		   						// Parameter passed into the task.
+			tskIDLE_PRIORITY+2,    			// Priority at which the task is created.
+			IntTaskGPIO2Handle ); 			// Pointer to the task created in the system
+
+		if(res==0){
+			printf("Error en la creacion de la Tarea IntGPIOTest");
+			}
+
+
 	/*********************************************************/
 	// Tarea periodica cada 1 ms
-	portTickType xPeriodicity =  1 / portTICK_RATE_MS;
+	portTickType xPeriodicity =  40 / portTICK_RATE_MS;
 	portTickType xLastWakeTime = xTaskGetTickCount();
 	// ----- Task repeat for ever -------------------------
 	/*Update Task to Refresh the MEFs related */
 	while(TRUE) {
-		primUpdates(&prim);
-		fsmButtonUpdate(&button4);
+
+
 	// Send the task to the locked state during xPeriodicity
 	// (periodical delay)
 		vTaskDelayUntil( &xLastWakeTime, xPeriodicity );

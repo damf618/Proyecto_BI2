@@ -11,7 +11,6 @@
 #include "GPIOINTSETUP.h"
 #include "chip.h"
 
-
 /*=====[Definition macros of private constants]==============================*/
 
 /*=====[Definitions of extern global variables]==============================*/
@@ -60,4 +59,8 @@ void GPIOInt_INIT(){
 	NVIC_ClearPendingIRQ(GINT0_IRQn );
 	NVIC_ClearPendingIRQ(GINT0_IRQn);
 	NVIC_EnableIRQ(GINT0_IRQn );
+
+	NVIC_SetPriority(PININT_NVIC_NAME, PRIORIDADES);
+	NVIC_SetPriority(GINT0_IRQn, PRIORIDADES);
+
 }

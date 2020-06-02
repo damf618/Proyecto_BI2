@@ -21,13 +21,13 @@
 #include "sapi.h"
 #include "spi_prim.h"
 #include "GPIOINTSETUP.h"
+#include "chip.h"
 
 /*=====[Definition macros of private constants]==============================*/
 
 /*=====[Private function-like macros]========================================*/
 
 /*=====[Definitions of private data types]===================================*/
-uint8_t datareceived=0;
 
 bool_t TEST_MODE = TEST_PRINCIPAL_STATE ;
 
@@ -42,20 +42,19 @@ spi_Server_t serv;
 TaskHandle_t IntTaskUARTHandle = NULL;
 TaskHandle_t IntTaskGPIO1Handle = NULL;
 TaskHandle_t IntTaskGPIO2Handle = NULL;
-//Semaphore Init
-SemaphoreHandle_t xSemaphore = NULL;
+//Queue UART Init
+QueueHandle_t UARTQUEUE = NULL;
+//Queue GPIO "GROUP" Init
+QueueHandle_t GPIOQUEUE= NULL;
 //Semaphore SPI Write Init
 SemaphoreHandle_t Write_Spi = NULL;
 //Semaphore Counter Init
 SemaphoreHandle_t Lost_Comm=NULL;
 //Mutex UART Init
 xSemaphoreHandle gatekeeper=NULL;
-//Semaphore Init TEC Primario Logic
-SemaphoreHandle_t PrimSemaphore = NULL;
 //Semaphore Init  TEC Test Logic
 SemaphoreHandle_t TestSemaphore = NULL;
-//Queue Init GPIO Init
-QueueHandle_t GPIOQueue = NULL;
+
 
 /*=====[Definitions of external public global variables]=====================*/
 
@@ -65,26 +64,7 @@ QueueHandle_t GPIOQueue = NULL;
 
 /*=====[Prototypes (declarations) of private functions]======================*/
 
-
 /*=====[Implementations of public functions]=================================*/
-
-static void Control_Sys( void* taskParmPtr )
-{
-	/*//DEBUG
-	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));*/
-	// ----- Task setup -----------------------------------
-	// Tarea periodica cada 40 ms
-	portTickType xPeriodicity =  40 / portTICK_RATE_MS;
-	portTickType xLastWakeTime = xTaskGetTickCount();
-	// ----- Task repeat for ever -------------------------
-	while(TRUE) {
-	//MEF Monitor Full Logic
-	   primControl(&prim);
-	// Send the task to the locked state during xPeriodicity
-	// (periodical delay)
-	   vTaskDelayUntil( &xLastWakeTime, xPeriodicity );
-   }
-}
 
 static void State_Test( void* taskParmPtr )
 {
@@ -223,11 +203,11 @@ static void Reset_Slave(void* taskParmPtr )
 	// ----- Task setup -----------------------------------
 	GPIOOutConfig(Reset_SPI_Slave_pin);				//Configure the SS Pin as Slave
 	reset_SPI(&serv,PRE_BOOTING);					//BOOTING Preparations
-	vTaskDelay(500);
+	vTaskDelay(250);
 	reset_SPI(&serv,BOOTING);						//BOOTING SEQUENCE
-	vTaskDelay(500);
+	vTaskDelay(250);
 	reset_SPI(&serv,POST_BOOTING);					//POST BOOTING Config
-	char i=0;
+	int8_t i=0;
 	for(i;i<=MAX_COMM_LOST;i++){
 		xSemaphoreGive(Lost_Comm);
 	}
@@ -248,7 +228,7 @@ static void Server_SysR( void* taskParmPtr )
 	while(TRUE)
 	{
 		//Semaphore to manage the READING from SPI SLAVE
-		if(xSemaphoreTake(Write_Spi,xPeriodicity))
+		if(xSemaphoreTake(Write_Spi,xPeriodicity)&&(uxSemaphoreGetCount(Lost_Comm)!=0))
 		{
 			aux=SPI_ServerR(&serv,lect);
 		}
@@ -303,51 +283,71 @@ static void onRx(  void *noUsado )
 {
 	//TODO Anadir QUEUE Para leer y pasarlo como parametro de la Tarea UART
 	// Lectura de dato y borrado de flag de interrupcion por UART
+	char datareceived=0;
 	datareceived = uartRxRead( prim.uart1.Uart );
-
-	BaseType_t checkIfYieldRequired = pdFALSE;
+	BaseType_t uartupdate = pdFALSE;
 	//Verificacion para ceder el CPU a la tarea de interrupcion
-	xSemaphoreGiveFromISR( xSemaphore, &checkIfYieldRequired );
-	portYIELD_FROM_ISR( checkIfYieldRequired );
+	xQueueSendFromISR( UARTQUEUE, &datareceived, &uartupdate );
+	//xSemaphoreGiveFromISR( xSemaphore, &uartupdate );
+	portYIELD_FROM_ISR( uartupdate );
 }
 
-//PROBABLEMENTE NECESITE UN WRAPPER
-/*Hubo que eliminar la definicion de la funcion de Interrupcion GPIO1 en...
+/*Hubo que eliminar la definicion de la funcion de Interrupcion GPIO2, GPIO1 y en GPIO0 en...
  * /home/daniel/Desktop/CIAA/firmware_v3-master/libs/sapi/sapi_v0.5.2/external_peripherals/src/sapi_ultrasonic_hcsr04.c
  */
-void PININT_IRQ_HANDLER(void) {
+void TEST_IRQ_HANDLER(void) {
 
-	// Se da aviso que se trato la interrupcion
+	// Limpiar bandera de interrupcion
 	Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX));
-	BaseType_t checkIfYieldRequired2= pdFALSE;
-	//primUpdates(&prim);
+	BaseType_t gpioupdate= pdFALSE;
 	//Verificacion para ceder el CPU a la tarea de interrupcion
-	xSemaphoreGiveFromISR( PrimSemaphore, &checkIfYieldRequired2 );
-	portYIELD_FROM_ISR( checkIfYieldRequired2 );
+	xSemaphoreGiveFromISR( TestSemaphore, &gpioupdate );
+	portYIELD_FROM_ISR( gpioupdate );
 
 }
 
-//PROBABLEMENTE NECESITE UN WRAPPER
-void  GINT0_IRQHandler(void){
-	uint8_t aux=0;
-	Chip_GPIOGP_ClearIntStatus(LPC_GPIOGROUP , 0);
-	BaseType_t checkIfYieldRequired1 = pdFALSE;
+void  LOGIC1_IRQ_HANDLER(void){
+	char aux=TEC1_INTF;
+	//Limpiar bandera de Interrupcion
+	Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX1));
+	BaseType_t gpioupdate = pdFALSE;
 	//Verificacion para ceder el CPU a la tarea de interrupcion
-	xSemaphoreGiveFromISR( PrimSemaphore, &checkIfYieldRequired1 );
-	portYIELD_FROM_ISR( checkIfYieldRequired1 );
-
-	//fsmButtonUpdate(&button4);
+	xQueueSendFromISR( GPIOQUEUE, &aux, &gpioupdate );
+	portYIELD_FROM_ISR( gpioupdate );
 }
+
+void  LOGIC2_IRQ_HANDLER(void){
+	char aux=TEC2_INTF;
+	//Limpiar bandera de Interrupcion
+	Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX2));
+	BaseType_t gpioupdate2 = pdFALSE;
+	//Verificacion para ceder el CPU a la tarea de interrupcion
+	xQueueSendFromISR( GPIOQUEUE, &aux, &gpioupdate2 );
+	portYIELD_FROM_ISR( gpioupdate2 );
+}
+
+void  LOGIC3_IRQ_HANDLER(void){
+	char aux=TEC3_INTF;
+	//Limpiar bandera de Interrupcion
+	Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX3));
+	BaseType_t gpioupdate3 = pdFALSE;
+	//Verificacion para ceder el CPU a la tarea de interrupcion
+	xQueueSendFromISR( GPIOQUEUE, &aux, &gpioupdate3 );
+	portYIELD_FROM_ISR( gpioupdate3 );
+
+}
+
+
 
 static void IntTaskUART(void* taskParmPtr )
 {
-	uint8_t aux=0;
+	char datareceived=0;
 	// ----- Task setup -----------------------------------
 	// ----- Task repeat for ever -------------------------
 	while(1)
 	{
 		// Has an interrupt ocurred?
-		if( xQueueReceive( GPIOQueue,&aux ,portMAX_DELAY ) == pdTRUE )
+		if( xQueueReceive( UARTQUEUE,&datareceived ,portMAX_DELAY ) == pdTRUE )
 		{
 			UARTUpdate(&prim.uart1, datareceived);
 		}
@@ -359,12 +359,30 @@ static void IntTaskUART(void* taskParmPtr )
 
 static void IntGPIOPrim(void* taskParmPtr )
 {
-	uint8_t aux=0;
+	char contact=5;
 	while(TRUE) {
 
-		if( xQueueReceive( GPIOQueue,&aux, portMAX_DELAY ) == pdTRUE )
+		if( xQueueReceive( GPIOQUEUE,&contact ,portMAX_DELAY ) == pdTRUE )
 		{
-			printf("Got in");
+			switch(contact){
+			case TEC1_INTF:
+				set_flag(&prim.boton1);
+				break;
+			case TEC2_INTF:
+				set_flag(&prim.boton2);
+				break;
+			case TEC3_INTF:
+				set_flag(&prim.boton3);
+				break;
+			default:
+				get_flag(&prim.boton1);
+				get_flag(&prim.boton2);
+				get_flag(&prim.boton3);
+				break;
+			}
+			NVIC_DisableIRQ(GROUP);
+			vTaskDelay( DEBOUNCE_TIME / portTICK_RATE_MS);
+			NVIC_EnableIRQ(GROUP);
 		}
 		taskYIELD();
 	}
@@ -376,7 +394,11 @@ static void IntGPIOTest(void* taskParmPtr )
 
 		if( xSemaphoreTake( TestSemaphore, portMAX_DELAY ) == pdTRUE )
 		{
-			printf("Got in");
+			set_flag(&button4);
+			NVIC_DisableIRQ(SINGLE);
+			vTaskDelay( DEBOUNCE_TIME / portTICK_RATE_MS);
+			NVIC_EnableIRQ(SINGLE);
+			//fsmButtonUpdate(&button4);
 		}
 		taskYIELD();
 	}
@@ -387,11 +409,17 @@ void Sys_Run( void* taskParmPtr )
 	/*//DEBUG
 	printf("\r\n %s \r\n",pcTaskGetTaskName(NULL));*/
 	// ----- Task setup -----------------------------------
-	// ----- Semaphore to manage the UART Interrupt Task
-	xSemaphore = xSemaphoreCreateBinary();
-	if( xSemaphore == NULL )
+	// ----- Queue to manage the UART Interrupt Task
+	UARTQUEUE = xQueueCreate( 1, sizeof( char ) );
+	if( UARTQUEUE == NULL )
 	{
-		printf("Error en la creacion de Semaforo Interrupcion UART");
+		printf("Error en la creacion de Cola para Interrupcion UART");
+	}
+	// ----- Queue to manage the principal GPIO Interrupt Task
+	GPIOQUEUE = xQueueCreate( 1, sizeof( char ) );
+	if( GPIOQUEUE == NULL )
+	{
+		printf("Error en la creacion de Cola para Interrupcion GPIO");
 	}
 	// ----- Semaphore to manage the SPI Reading after a write
 	Write_Spi = xSemaphoreCreateBinary();
@@ -405,12 +433,6 @@ void Sys_Run( void* taskParmPtr )
 	{
 		printf("Error en la creacion de Semaforo Contador Perdida SPI");
 	}
-	// ----- Semaphore to manage the TEC Primario Logic
-	PrimSemaphore = xSemaphoreCreateBinary();
-	if( PrimSemaphore == NULL )
-	{
-		printf("Error en la creacion de Semaforo TEC Primarios");
-	}
 	// ----- Semaphore to manage the TEC Test Logic
 	TestSemaphore = xSemaphoreCreateBinary();
 	if( TestSemaphore == NULL )
@@ -423,8 +445,6 @@ void Sys_Run( void* taskParmPtr )
 	{
 		printf("Error en la creacion de Mutex Escritura UART");
 	}
-	/* QUEUE para GPIO*/
-	GPIOQueue=xQueueCreate(1,sizeof(uint8_t));
 	// SPI configuration
 	SPI_INIT(&serv,SPI0, SS_SPI_pin,Reset_SPI_Slave_pin);
 	// MEF 1 Init Dispositivo Primario
@@ -441,18 +461,6 @@ void Sys_Run( void* taskParmPtr )
 	/*****************Creacion de Tareas*********************/
 
 	BaseType_t res= xTaskCreate(
-			Control_Sys,					// Function that implements the task.
-			(const char *)"Control_Sys",	// Text name for the task.
-			configMINIMAL_STACK_SIZE*2,		// Stack size in words, not bytes.
-			0,								// Parameter passed into the task.
-			tskIDLE_PRIORITY+2,				// Priority at which the task is created.
-			0 );							// Pointer to the task created in the system
-
-	if(res==0){
-		printf("Error en la creacion de la Tarea Control_Sys");
-	}
-
-	res= xTaskCreate(
 			Test_Mode,						// Function that implements the task.
 			(const char *)"Test_Mode",		// Text name for the task.
 			configMINIMAL_STACK_SIZE*1,		// Stack size in words, not bytes.
@@ -504,9 +512,9 @@ void Sys_Run( void* taskParmPtr )
 			Server_SysW,					// Function that implements the task.
 			(const char *)"Server_SysW",	// Text name for the task.
 			configMINIMAL_STACK_SIZE*2, 	// Stack size in words, not bytes.
-			0,		    // Parameter passed into the task.
+			0,		 					    // Parameter passed into the task.
 			tskIDLE_PRIORITY+2,    			// Priority at which the task is created.
-			0 ); 			// Pointer to the task created in the system
+			0 ); 							// Pointer to the task created in the system
 
 	if(res==0){
 		printf("Error en la creacion de la Tarea Server_SysW");
@@ -516,9 +524,9 @@ void Sys_Run( void* taskParmPtr )
 			Server_SysR,					// Function that implements the task.
 			(const char *)"Server_SysR",	// Text name for the task.
 			configMINIMAL_STACK_SIZE*2, 	// Stack size in words, not bytes.
-			0,		    // Parameter passed into the task.
+			0,		    					// Parameter passed into the task.
 			tskIDLE_PRIORITY+2,    			// Priority at which the task is created.
-			0 ); 			// Pointer to the task created in the system
+			0 ); 							// Pointer to the task created in the system
 
 	if(res==0){
 		printf("Error en la creacion de la Tarea Server_SysR");
@@ -548,18 +556,19 @@ void Sys_Run( void* taskParmPtr )
 			printf("Error en la creacion de la Tarea IntGPIOTest");
 			}
 
-
 	/*********************************************************/
-	// Tarea periodica cada 1 ms
+	// Tarea periodica cada 40 ms
 	portTickType xPeriodicity =  40 / portTICK_RATE_MS;
 	portTickType xLastWakeTime = xTaskGetTickCount();
 	// ----- Task repeat for ever -------------------------
 	/*Update Task to Refresh the MEFs related */
 	while(TRUE) {
 
+		//MEF Monitor Full Logic
+		primControl(&prim);
 
-	// Send the task to the locked state during xPeriodicity
-	// (periodical delay)
+		// Send the task to the locked state during xPeriodicity
+		// (periodical delay)
 		vTaskDelayUntil( &xLastWakeTime, xPeriodicity );
 	}
 }

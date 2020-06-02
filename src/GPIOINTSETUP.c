@@ -10,7 +10,7 @@
 
 #include "GPIOINTSETUP.h"
 #include "chip.h"
-
+#include "FreeRTOSConfig.h"
 /*=====[Definition macros of private constants]==============================*/
 
 /*=====[Definitions of extern global variables]==============================*/
@@ -33,34 +33,107 @@ void GPIOInt_INIT(){
 	Chip_PININT_EnableIntLow(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX));
 
 	// Enable interrupt in the NVIC
-	NVIC_ClearPendingIRQ( PININT_NVIC_NAME);
-	NVIC_EnableIRQ( PININT_NVIC_NAME);
+	NVIC_ClearPendingIRQ( TEST_INT);
+	NVIC_SetPriority(TEST_INT, configMAX_SYSCALL_INTERRUPT_PRIORITY+5);
+	NVIC_EnableIRQ( TEST_INT);
 
-	/*GPIO0 GROUP INTERRUPT SETUP TEC1, TEC2, TEC3*/
-	// Configure interrupt channel for the GPIO pin in SysCon block
-	Chip_GPIO_Init(LPC_GPIO_PORT );
+/****************TEC1*************************/
+	/*GPIO TEC1 INTERRUPT SETUP*/
+	// Configure interrupt channel for the GPIO pin
+	Chip_SCU_GPIOIntPinSel( PININT_INDEX1, GPIO0_GPIO_PORT1, GPIO0_GPIO_PIN1);
 
-	Chip_GPIO_SetPinDIRInput(LPC_GPIO_PORT , GPIO0_GPIO_PORT1, GPIO0_GPIO_PIN1);
-	Chip_GPIO_SetPinDIRInput(LPC_GPIO_PORT , GPIO0_GPIO_PORT2, GPIO0_GPIO_PIN2);
-	Chip_GPIO_SetPinDIRInput(LPC_GPIO_PORT , GPIO0_GPIO_PORT3, GPIO0_GPIO_PIN3);
 
-	Chip_GPIOGP_SelectLowLevel(LPC_GPIOGROUP , GPIO_PORTS, GPIO0_GPIO_PORT1, GPIO0_GPIO_PIN1);
-	Chip_GPIOGP_SelectLowLevel(LPC_GPIOGROUP , GPIO_PORTS, GPIO0_GPIO_PORT2, GPIO0_GPIO_PIN2);
-	Chip_GPIOGP_SelectLowLevel(LPC_GPIOGROUP , GPIO_PORTS, GPIO0_GPIO_PORT3, GPIO0_GPIO_PIN3);
+	// Configure channel interrupt as edge sensitive and falling edge interrupt
+	Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX1));
+	Chip_PININT_SetPinModeEdge(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX1));
+	Chip_PININT_EnableIntLow(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX1));
 
-	Chip_GPIOGP_EnableGroupPins(LPC_GPIOGROUP , GPIO_PORTS, GPIO0_GPIO_PORT1, 1 <<   GPIO0_GPIO_PIN1);
-	Chip_GPIOGP_EnableGroupPins(LPC_GPIOGROUP , GPIO_PORTS, GPIO0_GPIO_PORT2, 1 <<   GPIO0_GPIO_PIN2);
-	Chip_GPIOGP_EnableGroupPins(LPC_GPIOGROUP , GPIO_PORTS, GPIO0_GPIO_PORT3, 1 <<   GPIO0_GPIO_PIN3);
 
-	Chip_GPIOGP_SelectAndMode(LPC_GPIOGROUP , AndMode);
+	// Enable interrupt in the NVIC
+	NVIC_ClearPendingIRQ( TEC1_INT);
+	NVIC_SetPriority(TEC1_INT, configMAX_SYSCALL_INTERRUPT_PRIORITY+5);
+	NVIC_EnableIRQ( TEC1_INT);
 
-	Chip_GPIOGP_SelectEdgeMode(LPC_GPIOGROUP , EdgeMode);
+/****************TEC2************************/
+	// Configure interrupt channel for the GPIO pin
+	Chip_SCU_GPIOIntPinSel( PININT_INDEX2, GPIO0_GPIO_PORT2, GPIO0_GPIO_PIN2);
 
-	NVIC_ClearPendingIRQ(GINT0_IRQn );
-	NVIC_ClearPendingIRQ(GINT0_IRQn);
-	NVIC_EnableIRQ(GINT0_IRQn );
+	// Configure channel interrupt as edge sensitive and falling edge interrupt
+	Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX2));
+	Chip_PININT_SetPinModeEdge(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX2));
+	Chip_PININT_EnableIntLow(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX2));
 
-	NVIC_SetPriority(PININT_NVIC_NAME, PRIORIDADES);
-	NVIC_SetPriority(GINT0_IRQn, PRIORIDADES);
+	// Enable interrupt in the NVIC
+	NVIC_ClearPendingIRQ( TEC2_INT);
+	NVIC_SetPriority(TEC2_INT, configMAX_SYSCALL_INTERRUPT_PRIORITY+5);
+	NVIC_EnableIRQ( TEC2_INT);
 
+	/****************TEC3************************/
+		// Configure interrupt channel for the GPIO pin
+		Chip_SCU_GPIOIntPinSel( PININT_INDEX3, GPIO0_GPIO_PORT3, GPIO0_GPIO_PIN3);
+
+		// Configure channel interrupt as edge sensitive and falling edge interrupt
+		Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX3));
+		Chip_PININT_SetPinModeEdge(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX3));
+		Chip_PININT_EnableIntLow(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX3));
+
+		// Enable interrupt in the NVIC
+		NVIC_ClearPendingIRQ( TEC3_INT);
+		NVIC_SetPriority(TEC3_INT, configMAX_SYSCALL_INTERRUPT_PRIORITY+5);
+		NVIC_EnableIRQ( TEC3_INT);
+
+/*
+	//GPIO TEC2 INTERRUPT SETUP//
+	// Configure interrupt channel for the GPIO pin
+	Chip_SCU_GPIOIntPinSel( PININT_INDEX2, GPIO0_GPIO_PORT2, GPIO0_GPIO_PIN2);
+
+	// Configure channel interrupt as edge sensitive and falling edge interrupt
+	Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX2));
+	Chip_PININT_SetPinModeEdge(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX2));
+	Chip_PININT_EnableIntLow(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX2));
+
+	// Enable interrupt in the NVIC
+	NVIC_ClearPendingIRQ( TEC2_INT);
+	NVIC_SetPriority(TEC2_INT, configMAX_SYSCALL_INTERRUPT_PRIORITY+5);
+	NVIC_EnableIRQ( TEC2_INT);
+
+	//GPIO TEC3 INTERRUPT SETUP//
+	// Configure interrupt channel for the GPIO pin
+	Chip_SCU_GPIOIntPinSel( PININT_INDEX3, GPIO0_GPIO_PORT3, GPIO0_GPIO_PIN3);
+
+	// Configure channel interrupt as edge sensitive and falling edge interrupt
+	Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX3));
+	Chip_PININT_SetPinModeEdge(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX3));
+	Chip_PININT_EnableIntLow(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX3));
+
+	// Enable interrupt in the NVIC
+	NVIC_ClearPendingIRQ( TEC3_INT);
+	NVIC_SetPriority(TEC3_INT, configMAX_SYSCALL_INTERRUPT_PRIORITY+5);
+	NVIC_EnableIRQ( TEC3_INT);
+*/
+
+}
+
+void GPIOIntDisable(char gpioint){
+	if(gpioint==GROUP){
+		/* Clear pending irq channel interrupts */
+		NVIC_ClearPendingIRQ(TEST_INT);
+		NVIC_DisableIRQ( TEC1_INT);
+		NVIC_DisableIRQ( TEC2_INT);
+		NVIC_DisableIRQ( TEC3_INT);
+	}
+	if(gpioint==SINGLE){
+		/* Clear pending irq channel interrupts */
+		NVIC_ClearPendingIRQ(TEST_INT);
+		NVIC_DisableIRQ( TEST_INT);
+	}
+}
+
+void GPIOIntEnable(char gpioint){
+	if(gpioint==GROUP){
+			NVIC_EnableIRQ( TEC1_INT);
+			NVIC_EnableIRQ( TEC2_INT);
+			NVIC_EnableIRQ( TEC3_INT);
+	}if(gpioint==SINGLE)
+		NVIC_EnableIRQ( TEST_INT);
 }

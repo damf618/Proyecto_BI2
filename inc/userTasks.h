@@ -42,7 +42,7 @@ extern "C" {
 /** It sets initial conditions, creates the different tasks to execute properly
  *  the Monitor System it must be called to start the entire system. If all the
  *  tasks and RTOS tools were created correctly it is called periodically to
- *  update the relevant MEFS of the system.
+ *  update entire logic of the system, it is structured as a MEF.
  * Task Name: "Sys_Run"
  * Priority: +1
  * Parameter: None
@@ -56,19 +56,6 @@ extern "C" {
 void Sys_Run( void* taskParmPtr );  // Task declaration
 
 /*=====[Prototypes (declarations) of private functions]=============*/
-
-/** Task related to the entire logic of the system, it is structured as a MEF, it requires
- * the call of the update function periodically.
- * Task Name: "Control_Sys"
- * Priority: +2
- * Parameter: None
- * Trigger: Periodicity, 40ms
-
-	@note There is no Task assigned specifically to for the Update Task, it is a shared
-	responsibility of the Sys_Run task after it creates the tasks it is the responsible.
-	@see Sys_Run
-**/
-static void Control_Sys( void* taskParmPtr );
 
 /** Task for Debug/Maintenance purposes. It allows the user to verify the current state
  * through the UART Console.

@@ -59,7 +59,7 @@ void fsmButtonUpdate( debounce_t * pbutton );
 static void buttonPressed( debounce_t * pbutton );
 static void buttonReleased( debounce_t * pbutton );
 bool_t get_flag(debounce_t * pbutton);
-
+void set_flag(debounce_t * pbutton);
 /*=====[Prototypes (declarations) of public interrupt functions]=============*/
 
 /*=====[C++ - end]===========================================================*/

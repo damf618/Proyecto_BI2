@@ -16,7 +16,6 @@
 
 /*=====[Definition macros of private constants]==============================*/
 
-
 /*=====[Definitions of extern global variables]==============================*/
 
 /*=====[Definitions of public global variables]==============================*/

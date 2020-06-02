@@ -58,6 +58,11 @@ bool_t get_flag(debounce_t * pbutton)
 		return 0;
 }
 
+void set_flag(debounce_t * pbutton)
+{
+	pbutton->released_flag=1;
+}
+
 void fsmButtonError( debounce_t * pbutton )
 {
 	pbutton->state = STATE_BUTTON_UP;
@@ -82,7 +87,7 @@ void fsmButtonUpdate( debounce_t * pbutton )
     {
         case STATE_BUTTON_UP:
             /* CHECK TRANSITION CONDITIONS */
-
+        	// !-->OFF
             if( !GPIORead( pbutton->button ) )
             {
             	pbutton->state = STATE_BUTTON_FALLING;

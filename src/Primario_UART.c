@@ -102,3 +102,4 @@ char UARTRead(uart_prim_t * uprim){
 void UARTReport(uart_prim_t * uprim, char *text){
 	uartWriteString( uprim->Uart, text );
 }
+

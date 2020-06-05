@@ -59,6 +59,9 @@ extern "C" {
 #define TEC2_INTF 1
 #define TEC3_INTF 2
 
+#define GPIO_FALLING 1
+#define GPIO_RISING 0
+
 /*=====[Public function-like macros]=========================================*/
 
 /*=====[Definitions of public data types]====================================*/
@@ -72,6 +75,7 @@ void GPIOInt_INIT();
 void GPIOIntDisable(char gpioint);
 
 void GPIOIntEnable(char gpioint);
+
 /*=====[C++ - end]===========================================================*/
 
 #ifdef __cplusplus

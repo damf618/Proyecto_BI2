@@ -48,6 +48,12 @@ QueueHandle_t UARTQUEUE = NULL;
 QueueHandle_t GPIOQUEUE= NULL;
 //Semaphore SPI Write Init
 SemaphoreHandle_t Write_Spi = NULL;
+//Semaphore GPIO Edge Interrupt Handling
+SemaphoreHandle_t GPIO_INTA = NULL;
+//Semaphore GPIO Edge Interrupt Handling
+SemaphoreHandle_t GPIO_INTF = NULL;
+//Semaphore GPIO Edge Interrupt Handling
+SemaphoreHandle_t GPIO_INTN = NULL;
 //Semaphore Counter Init
 SemaphoreHandle_t Lost_Comm=NULL;
 //Mutex UART Init
@@ -308,36 +314,77 @@ void TEST_IRQ_HANDLER(void) {
 
 void  LOGIC1_IRQ_HANDLER(void){
 	char aux=TEC1_INTF;
+	char edge;
 	//Limpiar bandera de Interrupcion
 	Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX1));
 	BaseType_t gpioupdate = pdFALSE;
+	if(xSemaphoreTakeFromISR( GPIO_INTA, &gpioupdate ))
+	{
+		edge=GPIO_RISING;
+		//Ignorar pulsos durante estado DOWN del boton
+		Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX2));
+		Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX3));
+	}
+	else
+	{
+		edge=GPIO_FALLING;
+		NVIC_DisableIRQ( TEC2_INT);
+		NVIC_DisableIRQ( TEC3_INT);
+		xSemaphoreGiveFromISR( GPIO_INTA, &gpioupdate );
+	}
+	char data[2]={aux,edge};
 	//Verificacion para ceder el CPU a la tarea de interrupcion
-	xQueueSendFromISR( GPIOQUEUE, &aux, &gpioupdate );
+	xQueueSendFromISR( GPIOQUEUE, &data, &gpioupdate );
 	portYIELD_FROM_ISR( gpioupdate );
 }
 
 void  LOGIC2_IRQ_HANDLER(void){
+
 	char aux=TEC2_INTF;
-	//Limpiar bandera de Interrupcion
-	Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX2));
-	BaseType_t gpioupdate2 = pdFALSE;
-	//Verificacion para ceder el CPU a la tarea de interrupcion
-	xQueueSendFromISR( GPIOQUEUE, &aux, &gpioupdate2 );
-	portYIELD_FROM_ISR( gpioupdate2 );
+		char edge;
+		//Limpiar bandera de Interrupcion
+		Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX2));
+		BaseType_t gpioupdate2 = pdFALSE;
+		if(xSemaphoreTakeFromISR( GPIO_INTF, &gpioupdate2 ))
+		{
+			edge=GPIO_RISING;
+			//Ignorar pulsos durante estado DOWN del boton
+			Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX3));
+		}
+		else
+		{
+			edge=GPIO_FALLING;
+			NVIC_DisableIRQ( TEC3_INT);
+			xSemaphoreGiveFromISR( GPIO_INTF, &gpioupdate2 );
+		}
+		char data[2]={aux,edge};
+		//Verificacion para ceder el CPU a la tarea de interrupcion
+		xQueueSendFromISR( GPIOQUEUE, &data, &gpioupdate2 );
+		portYIELD_FROM_ISR( gpioupdate2 );
+
 }
 
 void  LOGIC3_IRQ_HANDLER(void){
 	char aux=TEC3_INTF;
-	//Limpiar bandera de Interrupcion
-	Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX3));
-	BaseType_t gpioupdate3 = pdFALSE;
-	//Verificacion para ceder el CPU a la tarea de interrupcion
-	xQueueSendFromISR( GPIOQUEUE, &aux, &gpioupdate3 );
-	portYIELD_FROM_ISR( gpioupdate3 );
+		char edge;
+		//Limpiar bandera de Interrupcion
+		Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX3));
+		BaseType_t gpioupdate3 = pdFALSE;
+		if(xSemaphoreTakeFromISR( GPIO_INTN, &gpioupdate3 ))
+		{
+			edge=GPIO_RISING;
+		}
+		else
+		{
+			edge=GPIO_FALLING;
+			xSemaphoreGiveFromISR( GPIO_INTN, &gpioupdate3 );
+		}
+		char data[2]={aux,edge};
+		//Verificacion para ceder el CPU a la tarea de interrupcion
+		xQueueSendFromISR( GPIOQUEUE, &data, &gpioupdate3 );
+		portYIELD_FROM_ISR( gpioupdate3 );
 
 }
-
-
 
 static void IntTaskUART(void* taskParmPtr )
 {
@@ -359,27 +406,34 @@ static void IntTaskUART(void* taskParmPtr )
 
 static void IntGPIOPrim(void* taskParmPtr )
 {
-	char contact=5;
+	char data[2]={0,0};
+
 	while(TRUE) {
 
-		if( xQueueReceive( GPIOQUEUE,&contact ,portMAX_DELAY ) == pdTRUE )
+		if( xQueueReceive( GPIOQUEUE,&data ,portMAX_DELAY ) == pdTRUE )
 		{
-			switch(contact){
-			case TEC1_INTF:
-				set_flag(&prim.boton1);
-				break;
-			case TEC2_INTF:
-				set_flag(&prim.boton2);
-				break;
-			case TEC3_INTF:
-				set_flag(&prim.boton3);
-				break;
-			default:
-				get_flag(&prim.boton1);
-				get_flag(&prim.boton2);
-				get_flag(&prim.boton3);
-				break;
+			if(data[1]==GPIO_FALLING){
+				switch(data[0]){
+				case TEC1_INTF:
+					set_flag(&prim.boton1);
+					break;
+				case TEC2_INTF:
+					set_flag(&prim.boton2);
+					break;
+				case TEC3_INTF:
+					set_flag(&prim.boton3);
+					break;
+				default:
+					get_flag(&prim.boton1);
+					get_flag(&prim.boton2);
+					get_flag(&prim.boton3);
+					break;
+				}
 			}
+			else if (data[1]==GPIO_RISING){
+				GPIOIntEnable(GROUP);
+			}
+			//Antirebote
 			NVIC_DisableIRQ(GROUP);
 			vTaskDelay( DEBOUNCE_TIME / portTICK_RATE_MS);
 			NVIC_EnableIRQ(GROUP);
@@ -416,7 +470,8 @@ void Sys_Run( void* taskParmPtr )
 		printf("Error en la creacion de Cola para Interrupcion UART");
 	}
 	// ----- Queue to manage the principal GPIO Interrupt Task
-	GPIOQUEUE = xQueueCreate( 1, sizeof( char ) );
+	char data[2]={0,0};
+	GPIOQUEUE = xQueueCreate( 1, sizeof( data ) );
 	if( GPIOQUEUE == NULL )
 	{
 		printf("Error en la creacion de Cola para Interrupcion GPIO");
@@ -426,6 +481,24 @@ void Sys_Run( void* taskParmPtr )
 	if( Write_Spi == NULL )
 	{
 		printf("Error en la creacion de Semaforo Escritura SPI");
+	}
+	// ----- Semaphore to manage the GPIO Interrupt edge change
+	GPIO_INTA = xSemaphoreCreateBinary();
+	if( GPIO_INTA == NULL )
+	{
+		printf("Error en la creacion de Semaforo de control de flancos GPIO de Alarma");
+	}
+	// ----- Semaphore to manage the GPIO Interrupt edge change
+	GPIO_INTF = xSemaphoreCreateBinary();
+	if( GPIO_INTF == NULL )
+	{
+		printf("Error en la creacion de Semaforo de control de flancos GPIO  de Falla");
+	}
+	// ----- Semaphore to manage the GPIO Interrupt edge change
+	GPIO_INTN = xSemaphoreCreateBinary();
+	if( GPIO_INTN == NULL )
+	{
+		printf("Error en la creacion de Semaforo de control de flancos GPIO  de Normal");
 	}
 	// ----- Semaphore to manage the COMM LOST Protocol
 	Lost_Comm = xSemaphoreCreateCounting( MAX_COMM_LOST , INITIAL_COMM_LOST );
@@ -563,6 +636,7 @@ void Sys_Run( void* taskParmPtr )
 	// ----- Task repeat for ever -------------------------
 	/*Update Task to Refresh the MEFs related */
 	while(TRUE) {
+
 
 		//MEF Monitor Full Logic
 		primControl(&prim);

@@ -90,6 +90,9 @@ bool_t primControl(dprimario_t * pPrimario);
 **/
 void primUpdates(dprimario_t * pPrimario);
 
+//
+bool_t Failcheck(dprimario_t * prim);
+
 /*=====[Prototypes (declarations) of public interrupt functions]=============*/
 
 /*=====[C++ - end]===========================================================*/

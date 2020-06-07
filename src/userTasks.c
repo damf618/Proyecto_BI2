@@ -35,10 +35,9 @@ debounce_t button4;
 
 dprimario_t prim;
 
-spi_Server_t serv;
-
 //TODO SEND ALLTHIS NEW FEATURES TO THE PRIMARIO LIBRARY
 //UART Interrupt Task Handler
+spi_Server_t serv;
 TaskHandle_t IntTaskUARTHandle = NULL;
 TaskHandle_t IntTaskGPIO1Handle = NULL;
 TaskHandle_t IntTaskGPIO2Handle = NULL;
@@ -71,6 +70,13 @@ SemaphoreHandle_t TestSemaphore = NULL;
 /*=====[Prototypes (declarations) of private functions]======================*/
 
 /*=====[Implementations of public functions]=================================*/
+
+static void MaskedFail(void* taskParmPtr){
+	//Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(PININT_INDEX2));
+	if(Failcheck(&prim))
+		xSemaphoreGive( GPIO_INTF);
+	vTaskDelete(NULL);
+}
 
 static void State_Test( void* taskParmPtr )
 {
@@ -432,6 +438,21 @@ static void IntGPIOPrim(void* taskParmPtr )
 			}
 			else if (data[1]==GPIO_RISING){
 				GPIOIntEnable(GROUP);
+				//CASO EXCEPCIONAL PARA QUE AL REGRESAR DE UNA ALARMA VERIFICAR SI HAY FALLAS PRESENTES
+				if((data[0]==TEC1_INTF)&&(prim.state==ALARM)){
+					BaseType_t res= xTaskCreate(
+							MaskedFail,					// Function that implements the task.
+							(const char *)"MaskedFail",		// Text name for the task.
+							configMINIMAL_STACK_SIZE, 		// Stack size in words, not bytes.
+							0,		   						// Parameter passed into the task.
+							tskIDLE_PRIORITY+5,    			// Priority at which the task is created.
+							0 );				 			// Pointer to the task created in the system
+
+					if(res==0){
+						printf("Error en la creacion de la Tarea MaskedFail");
+					}
+				}
+
 			}
 			//Antirebote
 			NVIC_DisableIRQ(GROUP);

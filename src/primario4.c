@@ -13,6 +13,9 @@
 #include "gpio.h"
 #include "Primario_UART.h"
 #include "sapi.h"
+#include "task.h"
+#include "FreeRTOS.h"
+#include "semphr.h"
 
 /*=====[Definition macros of private constants]==============================*/
 
@@ -23,6 +26,15 @@
 /*=====[Definitions of private global variables]=============================*/
 
 /*=====[Functions, program entry point after power on or reset]==========*/
+
+//
+bool_t Failcheck(dprimario_t * prim){
+	if(!GPIORead(FAIL_BUTTON)){
+		prim->state=FAIL;
+		return TRUE;
+	}
+	return FALSE;
+}
 
 // To turn on or off the LEDs according to the current state
 void LEDsON(char x,char y,char z){

@@ -11,21 +11,26 @@
 #include "Primario_UART.h"
 #include "sapi.h"
 #include "fsmuartcodes.h"
-#include "FreeRTOS.h"
-#include "task.h"
-#include "semphr.h"
-
 
 
 int window=0;	// For the calculations of the time needed to fulfill the number of
 				// cycles specified
 
-/*=====[Definitions of public functions]=====================================*/
+/*=====[Definition macros of private constants]==============================*/
+
+/*=====[Definitions of extern global variables]==============================*/
+
+/*=====[Definitions of public global variables]==============================*/
+
+/*=====[Definitions of private global variables]=============================*/
+
+/*=====[Main function, program entry point after power on or reset]==========*/
 
 // It resets the UART Listening process and also the timeout delay per transition
 void UARTReset(uart_prim_t * uprim){
 	uprim->waitTextState = UART_RECEIVE_STRING_CONFIG;	// It resets the MEF stage to receive this
     uprim->waitText.state = UART_RECEIVE_STRING_CONFIG; // way we can init the UART Listening Process
+    delayInit(&uprim->waitText.delay,window);			// Configure the UART Listening Process delay for the timeout measuring.
 }
 
 // It is designed to be used in those cases where more than one code is being
@@ -74,23 +79,12 @@ bool_t UARTInit(uart_prim_t * uprim,bool_t code,uartMap_t Uart,tick_t timeout){
     return 1;
 }
 
-//RTOS Adapt for time controlling
-void Time_Update(uart_prim_t * uprim, char cdata){
-	uprim->CurrentTick=xTaskGetTickCount ();
-	uint32_t aux=(uprim->CurrentTick - uprim->InitTick);
-	if(aux>(uprim->waitText.timeout)){
-		xSemaphoreGive(uprim->Msg_Timeout);
-		uprim->InitTick=uprim->CurrentTick;
-	}
-	UARTUpdate(uprim,cdata);
-}
-
 // It updates the state of the MEFS, Machine in charge of the UART Listening
 // Process to verify if there is any possible transition
 void UARTUpdate(uart_prim_t * uprim, char cdata){
 	if( uprim->waitTextState != UART_RECEIVE_STRING_RECEIVED_OK &&  //Asks if none of the timeout or received message events were reached.
 		             uprim->waitTextState != UART_RECEIVE_STRING_TIMEOUT )
-		uprim->waitTextState = waitForReceiveStringOrTimeout2( uprim->Uart , &uprim->waitText, cdata, uprim ); //Updates the MEF to receive the next byte.
+		uprim->waitTextState = waitForReceiveStringOrTimeout2( uprim->Uart , &uprim->waitText, cdata ); //Updates the MEF to receive the next byte.
 }
 
 // It reads the MEFS of the UART Listening Process to verify if there is
@@ -101,9 +95,6 @@ char UARTRead(uart_prim_t * uprim){
 		}
 		else if( uprim->waitTextState == UART_RECEIVE_STRING_RECEIVED_OK ){  //Asks for the received code flag. Must be
 			return UART_received;									// called after the "Update" (UARTUpdate).
-		}
-		else{
-			return UART_reading;
 		}
 }
 

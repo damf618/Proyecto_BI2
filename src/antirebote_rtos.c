@@ -34,15 +34,13 @@
 #include "antirebote_rtos.h"
 #include "gpio.h"
 
-/*TODO implement Semaphores/Interrupts to reuse the code */
-
-/* Function to execute once the button was pressed*/
+/* accion de el evento de button pulsada */
 void buttonPressed( debounce_t * pbutton )
 {
 	pbutton->down_time = xTaskGetTickCount();
 }
 
-/* Function to execute once the button was released*/
+/* accion de el evento de button liberada */
 void buttonReleased( debounce_t * pbutton )
 {
 	pbutton->up_time = xTaskGetTickCount();
@@ -50,7 +48,6 @@ void buttonReleased( debounce_t * pbutton )
 	pbutton->released_flag=1;
 }
 
-/* Function to detect if a pushbutton was pressed*/
 bool_t get_flag(debounce_t * pbutton)
 {
 	if(pbutton->released_flag){
@@ -61,19 +58,16 @@ bool_t get_flag(debounce_t * pbutton)
 		return 0;
 }
 
-/* Function to force the signal of pushbutton pressed*/
 void set_flag(debounce_t * pbutton)
 {
 	pbutton->released_flag=1;
 }
 
-/* Function to correct any fault in the MEFs transitions */
-static void fsmButtonError( debounce_t * pbutton )
+void fsmButtonError( debounce_t * pbutton )
 {
 	pbutton->state = STATE_BUTTON_UP;
 }
 
-/* Function to start the full debounce logic*/
 void fsmButtonInit( debounce_t * pbutton, gpioMap_t button )
 {
 	pbutton->button=button;
@@ -93,6 +87,7 @@ void fsmButtonUpdate( debounce_t * pbutton )
     {
         case STATE_BUTTON_UP:
             /* CHECK TRANSITION CONDITIONS */
+        	// !-->OFF
             if( !GPIORead( pbutton->button ) )
             {
             	pbutton->state = STATE_BUTTON_FALLING;

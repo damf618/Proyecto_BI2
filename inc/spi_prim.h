@@ -28,6 +28,7 @@ extern "C" {
 #define PRE_BOOTING 0
 #define BOOTING 1
 #define POST_BOOTING 2
+/*=====[Public function-like macros]=========================================*/
 
 /*=====[Definitions of public data types]====================================*/
 typedef struct{
@@ -49,12 +50,17 @@ typedef struct{
 **/
 void SPI_INIT(spi_Server_t * pServer1, spiMap_t spi, gpioMap_t pin,gpioMap_t resetpin);
 
-/** Sends the Writing Command (0x02, 0x0), asking the NodeMCU to upload the
+/** 2 Modes of working, Depending of the previous action taken.
+ * Mode A we sent the Writing Command. We ask for the NodeMCU to upload the
  * current state to the Firebase Database.
+ * Mode B we sent the Reading Command. We read if the NodeMCU could upload
+ * the info correctly or not.
 
 	@param pServer1 element of type *spi_Server_t* with all SPI data types needed.
 	@param data data to be written in the Mode A of operation, it will be written after the
 	":"character.
+	@param readv vector to receive the answer of the SPI slave, it will save result
+	of the server upload operation.
 	@note The entire protocol is based on the SPISlave.h protocol for the NodeMCU.
 	This function must be called after SPI_INIT.
 	@see SPI_INIT.
@@ -62,35 +68,9 @@ void SPI_INIT(spi_Server_t * pServer1, spiMap_t spi, gpioMap_t pin,gpioMap_t res
 **/
 void SPI_ServerW(spi_Server_t * pServer1, uint8_t data);
 
-/** Sends the Reading Command (0x03, 0x0). We read if the NodeMCU could upload
- * the info correctly or not.
 
-
-	@param pServer1 element of type *spi_Server_t* with all SPI data types needed.
-	@param readv vector to receive the answer of the SPI slave, it will save result
-	of the server upload operation.
-	@note The entire protocol is based on the SPISlave.h protocol for the NodeMCU.
-	This function must be called after SPI_INIT, it should be called after a write was made to
-	work properly.
-	@see SPI_INIT.
-
-**/
 bool_t SPI_ServerR(spi_Server_t * pServer1,uint8_t * readv);
 
-/** The NodeMCU requires an specific gpio states to run it's booting sequence, it requires
- * the SS Pin of the SPI port to be turned off, but to allowthesystem work properly itmust be
- *  set back on once the device is stable. The booting sequence was splitted in 3 stages.
- *  Stage1 - Pre-Booting: Turn Slave's Power Control pin off and SS Pin off.
- *  Stage2 - Booting: Turn Slave's Power Control pin on and SS Pin off.
- *  Stage3 - Post-Booting:  Turn Slave's Power Control pin on and SS Pin on.
-
-	@param pServer1 element of type *spi_Server_t* with all SPI data types needed.
-	@param stage desired stage of the booting sequence.
-	@note The entire protocol is based on the SPISlave.h protocol for the NodeMCU. It does not
-	change of stages automatically.
-	@see Reset_Slave.
-
-**/
 void reset_SPI(spi_Server_t * pServer1,uint8_t stage );
 
 /*=====[Prototypes (declarations) of public interrupt functions]=============*/

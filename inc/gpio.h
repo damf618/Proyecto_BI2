@@ -31,38 +31,21 @@ extern "C" {
 #define RED_LIGHT LED2				// GPIO for the Red LED
 #define GREEN_LIGHT LED3			// GPIO for the Green LED
 
+#define TEST_LIGHT LEDB				// GPIO for the Test LED
+
+
+/*=====[Public function-like macros]=========================================*/
+
+/*=====[Definitions of public data types]====================================*/
+
 /*=====[Prototypes (declarations) of public functions]=======================*/
-/** Function to read the current state of a digital configured pin.
 
-	@param gpio pin we wish to be read.
-	@note Based on the sapi library.
-
-**/
 bool_t GPIORead( gpioMap_t gpio );
-
-/**  Function to set the output of a digital configured pin.
-
-	@param gpio pin we wish to be set.
-	@note Based on the sapi library.
-
-**/
 void GPIOWrite( gpioMap_t gpio, bool_t state);
-
-/**  Function to toggle the output of a digital configured pin.
-
-	@param gpio pin we wish to be modified.
-	@note Based on the sapi library.
-
-**/
 void GPIOToggle(gpioMap_t gpio);
 
-/**  Function to configure the selected pin as digital output.
-
-	@param gpio pin to be configured as output.
-	@note Based on the sapi library.
-
-**/
 void GPIOOutConfig(gpioMap_t pin);
+/*=====[Prototypes (declarations) of public interrupt functions]=============*/
 
 /*=====[C++ - end]===========================================================*/
 

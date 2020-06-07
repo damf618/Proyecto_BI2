@@ -32,26 +32,24 @@
 #include "sapi.h"
 #include "gpio.h"
 
-//GPIO read based on the sapi library
+
 bool_t GPIORead( gpioMap_t gpio )
 {
 	return gpioRead(gpio);
 }
 
-//GPIO write based on the sapi library
+
 void GPIOWrite( gpioMap_t gpio, bool_t state)
 {
 	gpioWrite( gpio, state);
 }
 
-//GPIO toggle state basedon the sapi library
 void GPIOToggle( gpioMap_t gpio)
 {
 	gpioWrite(gpio, !gpioRead(gpio));
 }
 
-//GPIO configuration based on the sapi library
-void GPIOOutConfig(gpioMap_t pin)
+  void GPIOOutConfig(gpioMap_t pin)
 {
 		gpioInit( pin, GPIO_OUTPUT);
 }

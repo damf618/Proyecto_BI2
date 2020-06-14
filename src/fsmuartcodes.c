@@ -10,52 +10,45 @@
 
 #include "Primario_UART.h"
 #include "sapi.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
 
-/*=====[Definition macros of private constants]==============================*/
+/*=====[Declaration of Functions]============================================*/
 
-/*=====[Definitions of extern global variables]==============================*/
-
-/*=====[Definitions of public global variables]==============================*/
-
-/*=====[Definitions of private global variables]=============================*/
-
-/*=====[Main function, program entry point after power on or reset]==========*/
-
-
-
-/*********************************************/
 waitForReceiveStringOrTimeoutState_t waitForReceiveStringOrTimeout2(
-   uartMap_t uart, waitForReceiveStringOrTimeout_t* instance , char receiveByte)
+		uartMap_t uart,waitForReceiveStringOrTimeout_t* instance , char receiveByte,uart_prim_t * uprim)
 {
 
    switch( instance->state ) {
 
    case UART_RECEIVE_STRING_CONFIG:
 
-      delayInit( &(instance->delay), instance->timeout );
+	   uprim->InitTick=xTaskGetTickCount();
 
-      instance->stringIndex = 0;
+	   instance->stringIndex = 0;
 
-      instance->state = UART_RECEIVE_STRING_RECEIVING;
+	   instance->state = UART_RECEIVE_STRING_RECEIVING;
 
-      break;
+	   break;
 
    case UART_RECEIVE_STRING_RECEIVING:
 
-	   if( (instance->string)[(instance->stringIndex)] == receiveByte ) {
-
-		   (instance->stringIndex)++;
-
-		   if( (instance->stringIndex) == (instance->stringSize - 1) ) {
-			   instance->state = UART_RECEIVE_STRING_RECEIVED_OK;
-		   }
-
+	   if( xSemaphoreTake(  uprim->Msg_Timeout ,0 )==pdTRUE){
+		   instance->state = UART_RECEIVE_STRING_TIMEOUT;
 	   }
+	   else{
 
-      if( delayRead( &(instance->delay) ) ) {
-         instance->state = UART_RECEIVE_STRING_TIMEOUT;
-      }
+		   if( (instance->string)[(instance->stringIndex)] == receiveByte ) {
 
+			   (instance->stringIndex)++;
+
+			   if( (instance->stringIndex) == (instance->stringSize - 1) ) {
+				   instance->state = UART_RECEIVE_STRING_RECEIVED_OK;
+			   }
+
+		   }
+	   }
       break;
 
    case UART_RECEIVE_STRING_RECEIVED_OK:
@@ -73,4 +66,4 @@ waitForReceiveStringOrTimeoutState_t waitForReceiveStringOrTimeout2(
 
    return instance->state;
 }
-/*******************************************************************/
+

@@ -19,14 +19,20 @@
 extern "C" {
 #endif
 
-/*=====[Definition macros of public constants]===============================*/
-
-/*=====[Public function-like macros]=========================================*/
-
-/*=====[Definitions of public data types]====================================*/
-
 /*=====[Prototypes (declarations) of public functions]=======================*/
-waitForReceiveStringOrTimeoutState_t waitForReceiveStringOrTimeout2( uartMap_t uart, waitForReceiveStringOrTimeout_t* instance, char * receiveByte );
+
+/** MEF to control the processing of the ASCII Characters that arrives trough the UART
+ * Console, it is based on the sapi library and has some modifications towork properly
+ *  with FreeRTOS. It has an internal logic to process the expected code (alarm_code:
+ *  "al987", fail_code: "fa123", normal_code: "no456") with some tolerance to noise and
+ *  "extra" characters.
+
+	@param uprim element of type *uart_prim_t* with the uart_primary data types needed
+	@note It requires an external signal (Semaphore) to set the timeout event.
+	@see Time_Update
+
+**/
+waitForReceiveStringOrTimeoutState_t waitForReceiveStringOrTimeout2( uartMap_t uart, waitForReceiveStringOrTimeout_t* instance, char receiveByte, uart_prim_t * uprim );
 
 
 /*=====[Prototypes (declarations) of public interrupt functions]=============*/

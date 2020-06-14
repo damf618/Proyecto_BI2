@@ -12,20 +12,17 @@
 #include "spi_hal.h"
 #include "spi_prim.h"
 
-/*=====[Definition macros of private constants]==============================*/
-
-/*=====[Definitions of extern global variables]==============================*/
-
 /*=====[Definitions of public global variables]==============================*/
 bool_t reading=FALSE;
 /* All OK! message in ASCII
-                           _   O  K  !  _ null				*/
+------------------------------------------------------------------------------
+                           _   O  K  !  _ null
+------------------------------------------------------------------------------*/
 uint8_t Check[BUFF_SIZE]= {95,79,75,33,95,0};
-
-/*=====[Definitions of private global variables]=============================*/
 
 /*=====[Functions, program entry point after power on or reset]==========*/
 
+// SPI Initialization for the Principal Device
 void SPI_INIT(spi_Server_t * pServer1, spiMap_t spi, gpioMap_t pin, gpioMap_t resetpin){
 
 	pServer1->spi=spi;							//Set the SPI PORT
@@ -38,9 +35,9 @@ void SPI_INIT(spi_Server_t * pServer1, spiMap_t spi, gpioMap_t pin, gpioMap_t re
 	spiInit2( pServer1->spi );					// Configuration of the SPI Parameters
 }
 
+// SPI Write to the SPI SLave to command the update of the state into the web server
 void SPI_ServerW(spi_Server_t * pServer1, uint8_t data )
 {
-
 	//Enable the Slave SSPin LOW
 	GPIOWrite(pServer1->pin,LOW_G);
 
@@ -52,7 +49,7 @@ void SPI_ServerW(spi_Server_t * pServer1, uint8_t data )
 
 }
 
-
+// SPI read from the SPI SLave to check if the update of the state was made correctly
 bool_t SPI_ServerR(spi_Server_t * pServer1, uint8_t * readv )
 {
 	bool_t aux=TRUE;
@@ -70,6 +67,7 @@ bool_t SPI_ServerR(spi_Server_t * pServer1, uint8_t * readv )
 	return aux;
 }
 
+// The SPI Slave (NodeMCU) needs a particular sequence for booting
 void reset_SPI(spi_Server_t * pServer1, uint8_t stage )
 {
 	if(stage==PRE_BOOTING){

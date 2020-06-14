@@ -9,7 +9,9 @@
 #define PROGRAMAS_DAMF_PRIMARIO_INC_PRIMARIO_UART_H_
 
 #include <sapi.h>
-
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
 
 /*=====[C++ - begin]=========================================================*/
 
@@ -17,20 +19,27 @@
 extern "C" {
 #endif
 
-
+#define UARTMSGLONG 100
 
 #define ALARMMSG "al987"
 #define FAILMSG "fa123"
 #define NORMALMSG "no456"
 
-#define NCodes 3 // number of codes to be monitored (ALARMMSG, FAILMSG and NORMALMSG)
-#define CYCLES 12// should be a multiple of NCodes, it represents how many times
-				 // it will check for each of the different UART Modes in the timeout time
+#define NCodes 3 				 // number of codes to be monitored (ALARMMSG, FAILMSG and NORMALMSG)
+#define CYCLES 18				 // should be a multiple of NCodes, it represents how many times
+				 	 	 	 	 // it will check for each of the different UART Modes in the timeout time
 
-#define BAUD_RATE 115200	//BAUD RATE for the Uart Port
+#define BAUD_RATE 115200		 //BAUD RATE for the Uart Port
 
 typedef enum{ FAILURES, ALARMS, NORMALS} uart_mode_t;	// What are we monitoring Fail codes
-												// or Alarm codes.
+														// or Alarm codes.
+
+// Structure with all the data needed to send an UART Message
+typedef struct{
+	char dato_tx[UARTMSGLONG]; 		//Bloque de memoria de la transmision en curso
+	uint8_t txCounter; 				//contador de bytes transmitidos
+	uint8_t txLen; 					//longitud del paquete en transmision
+}tx_message;
 
 // Structure with the different data types to generate an UART Listening Process
 typedef struct{
@@ -39,6 +48,11 @@ typedef struct{
 	waitForReceiveStringOrTimeoutState_t waitTextState;
 	bool_t type;
 	uart_mode_t mode;
+	SemaphoreHandle_t Msg_Timeout;
+	TickType_t InitTick;
+	TickType_t CurrentTick;
+	QueueHandle_t onTxQueue;
+	tx_message messageTX;
 }uart_prim_t;
 
 //Possible results of the UART Listening Process
@@ -108,6 +122,18 @@ void UARTChange(uart_prim_t * uprim,bool_t code);
 
 **/
 void UARTReport(uart_prim_t * uprim, char *text);
+
+/** Adaptation of the original code to be FreeRTOS compatible, this function controls
+ * the timeout event and gives the corresponding semaphore.
+ *
+ *
+ 	@param uprim element of type *uart_prim_t* with the uart related data types needed
+	@param cdata  received byte from the uart interrupt.
+	@note Based on sapi library.
+ *
+ *
+ **/
+void Time_Update(uart_prim_t * uprim, char cdata);
 
 /*=====[C++ - end]===========================================================*/
 

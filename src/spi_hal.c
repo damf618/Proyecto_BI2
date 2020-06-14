@@ -8,16 +8,10 @@
 
 /*=====[Inclusions of function dependencies]=================================*/
 #include "sapi.h"
-/*=====[Definition macros of private constants]==============================*/
-
-/*=====[Definitions of extern global variables]==============================*/
-
-/*=====[Definitions of public global variables]==============================*/
-
-/*=====[Definitions of private global variables]=============================*/
 
 /*=====[Functions, program entry point after power on or reset]==========*/
 
+//SPI Initialization based on the sapi library
 void spiInit2( spiMap_t spi )
 {
          /* Set up clock and power for SSP1 module */
@@ -31,7 +25,7 @@ void spiInit2( spiMap_t spi )
          Chip_SSP_Enable( LPC_SSP1 );
 }
 
-
+//SPI read based on the sapi library
 bool_t spiRead2( spiMap_t spi, uint8_t* buffer, uint32_t bufferSize )
 {
 
@@ -54,7 +48,7 @@ bool_t spiRead2( spiMap_t spi, uint8_t* buffer, uint32_t bufferSize )
    return retVal;
 }
 
-
+//SPI write based on the sapi library
 bool_t spiWrite2( spiMap_t spi, uint8_t* buffer, uint32_t bufferSize)
 {
 
@@ -76,7 +70,8 @@ bool_t spiWrite2( spiMap_t spi, uint8_t* buffer, uint32_t bufferSize)
    return retVal;
 }
 
-void Write_Read_Command(spiMap_t spi, uint8_t* wbuffer, uint32_t bufferSize, uint8_t* rbuffer)
+//SPI write/read combination based on the the sapi library
+bool_t Write_Read_Command(spiMap_t spi, uint8_t* wbuffer, uint32_t bufferSize, uint8_t* rbuffer)
 {
 
    bool_t retVal = TRUE;

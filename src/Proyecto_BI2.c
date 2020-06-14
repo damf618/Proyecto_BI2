@@ -15,13 +15,6 @@
 #include "sapi.h"
 #include "userTasks.h"
 #include "gpio.h"
-/*=====[Definition macros of private constants]==============================*/
-
-/*=====[Definitions of extern global variables]==============================*/
-
-/*=====[Definitions of public global variables]==============================*/
-
-/*=====[Definitions of private global variables]=============================*/
 
 /*=====[Main function, program entry point after power on or reset]==========*/
 
@@ -38,7 +31,9 @@ int main( void )
 		   0 );         				// Pointer to the task created in the system
 
    if(res==0){
-   		printf("Error en la creacion de la Tarea Sys_Run");
+   		while(1){
+	   printf("Error ejecutando la Tarea de arranque: Sys_Run");
+   		}
    }
 
    vTaskStartScheduler(); // Initialize scheduler

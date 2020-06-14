@@ -11,9 +11,6 @@
 #ifndef GPIO_SETUP_H_
 #define GPIO_SETUP_H_
 
-/*=====[Inclusions of public function dependencies]==========================*/
-
-
 /*=====[C++ - begin]=========================================================*/
 
 #ifdef __cplusplus
@@ -59,19 +56,50 @@ extern "C" {
 #define TEC2_INTF 1
 #define TEC3_INTF 2
 
-/*=====[Public function-like macros]=========================================*/
-
-/*=====[Definitions of public data types]====================================*/
+#define GPIO_FALLING 1
+#define GPIO_RISING 0
 
 /*=====[Prototypes (declarations) of public functions]=======================*/
 
-/*=====[Prototypes (declarations) of public interrupt functions]=============*/
+/** In case we are using the TEC4 pushbutton as test mode switch, this function configures
+ * the system to generate interrupts associated to this pin.
 
-void GPIOInt_INIT();
+	@note It set the interrupt priority to 5, check for compatibility with FreeRTOSCONFIG.h.
+	@see configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY
 
+**/
+void GPIOTestInt_INIT(void);
+
+/** Configuration of all the pushbutton needed for the primario4 logic to work properly with
+ * RTOS requirements, it sets the maximun interrupt priority to the alarm event, then is the
+ * fail event and in the end the normal event.
+
+	@note It assumes you are using the TEC1, TEC2 and TEC3 pushbuttons.
+
+**/
+void GPIOInt_INIT(void);
+
+/** The principal objective of this function is to implement a "debounce" strategy through the
+ * disable of the interrupts for a period of time (DEBOUNCE TIME) to be enabled after to allow
+ * the system to keep working properly.
+
+	@param gpioint it defines if we are going to disable the test event or the entire primario4 logic
+	@note It does not enable the interrupts automatically.
+	@see GPIOIntEnable
+
+**/
 void GPIOIntDisable(char gpioint);
 
+/** The principal objective of this function is to implement a "debounce" strategy through the
+ * disable of the interrupts for a period of time (DEBOUNCE TIME) to be enabled after to allow
+ * the system to keep working properly.
+
+	@param gpioint it defines if we are going to enable the test event or the entire primario4 logic
+	@see GPIOIntDisable
+
+**/
 void GPIOIntEnable(char gpioint);
+
 /*=====[C++ - end]===========================================================*/
 
 #ifdef __cplusplus
